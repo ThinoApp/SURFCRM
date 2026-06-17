@@ -1,0 +1,36 @@
+:root {
+  --surf-ink: #101820;
+  --surf-ink-soft: #354252;
+  --surf-blue: #0b63f6;
+  --surf-blue-strong: #084fc4;
+  --surf-cyan: #18b7c8;
+  --surf-green: #24a148;
+  --surf-amber: #f59e0b;
+  --surf-red: #d64545;
+  --surf-surface: #ffffff;
+  --surf-muted: #f5f7fa;
+  --surf-muted-strong: #eaf0f6;
+  --surf-border: #d9e1ea;
+  --surf-border-strong: #b8c4d2;
+  --surf-sidebar: #0e1724;
+  --surf-sidebar-soft: #172235;
+  --surf-sidebar-text: #dce7f5;
+  --surf-radius-xs: 4px;
+  --surf-radius-sm: 6px;
+  --surf-radius-md: 8px;
+  --surf-shadow-sm: 0 1px 2px rgba(16, 24, 32, 0.08);
+  --surf-shadow-md: 0 10px 30px rgba(16, 24, 32, 0.08);
+  --surf-space-1: 4px;
+  --surf-space-2: 8px;
+  --surf-space-3: 12px;
+  --surf-space-4: 16px;
+  --surf-space-5: 20px;
+  --surf-space-6: 24px;
+  --surf-space-8: 32px;
+  --surf-space-10: 40px;
+  --surf-font-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --surf-font-mono:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
