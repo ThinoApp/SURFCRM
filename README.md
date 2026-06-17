@@ -52,7 +52,7 @@ Le proxy expose `http://127.0.0.1:8787/api/crm`.
 - `Messages`
 - `Relances`
 - `OUTBOUND_POOL`
-- `Lead_Magnets`
+- `Lead magnets`
 - `Apprentissages`
 
 Les noms d'onglets peuvent etre remplaces avec:
@@ -83,3 +83,14 @@ npm run lint
 npm run test
 npm run sheets:proxy:check
 ```
+
+## Deploiement VPS
+
+Un kit de deploiement est disponible dans `deploy/`:
+
+- `deploy/DEPLOYMENT_VPS.md`: procedure Nginx + PM2;
+- `.github/workflows/surf-crm-ci-cd.yml`: verification + deploiement GitHub Actions;
+- `deploy/ecosystem.config.cjs`: configuration PM2 du proxy Sheets;
+- `deploy/nginx/surf-crm.conf`: configuration Nginx pour servir `dist/` et proxyfier `/api/`;
+- `deploy/env.vps.example`: exemple de `.env` pour le VPS;
+- `deploy/deploy.sh`: script de mise a jour apres modification.
