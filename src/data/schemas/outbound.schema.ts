@@ -4,7 +4,6 @@ import { outboundStatuses, priorityLevels } from '../domain/crmTypes'
 import {
   booleanField,
   numberOrNullField,
-  requiredTextField,
   textField,
 } from './schemaUtils'
 
