@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/var/www/surf-crm/app}"
+APP_DIR="${APP_DIR:-/var/www/surf-crm}"
 PM2_APP_NAME="${PM2_APP_NAME:-surf-crm-api}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 DEPLOY_GIT_PULL="${DEPLOY_GIT_PULL:-false}"
