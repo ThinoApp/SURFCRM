@@ -152,6 +152,21 @@ export type Apprentissage = {
   sourceProspectId: string
 }
 
+export type WeeklyReview = {
+  reportDate: DateString
+  week: string
+  analyzedPeriod: string
+  executiveSummary: string
+  highlights: string
+  keyNumbers: string
+  conclusions: string
+  nextWeekImprovements: string
+  priorityActions: string
+  risks: string
+  sourcesRead: string
+  status: string
+}
+
 export type CrmSnapshot = {
   prospects: Prospect[]
   messages: Message[]
@@ -159,4 +174,5 @@ export type CrmSnapshot = {
   outboundTargets: OutboundTarget[]
   leadMagnets: LeadMagnet[]
   apprentissages: Apprentissage[]
+  weeklyReviews: WeeklyReview[]
 }

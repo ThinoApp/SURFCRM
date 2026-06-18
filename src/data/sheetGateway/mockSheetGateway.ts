@@ -1,5 +1,6 @@
 import { mockCrmSnapshot } from '../fixtures/mockCrmSnapshot'
 import type { CrmSnapshot } from '../domain/crmTypes'
+import { sheetDefinitions, sheetEntityKeys } from './sheetDefinitions'
 import type {
   MarkContentUsedInput,
   SheetGateway,
@@ -20,15 +21,43 @@ function createDuplicateError(entity: string, id: string) {
   return new Error(`${entity} deja existant: ${id}`)
 }
 
+function stringifySheetValue(value: unknown) {
+  if (typeof value === 'boolean') {
+    return value ? 'TRUE' : 'FALSE'
+  }
+
+  return String(value ?? '')
+}
+
+function createRawValuesFromSnapshot(snapshot: CrmSnapshot) {
+  return sheetEntityKeys.reduce((valuesByEntity, entity) => {
+    const definition = sheetDefinitions[entity]
+    const rows = snapshot[entity].map((item) =>
+      definition.fields.map((field) =>
+        stringifySheetValue((item as Record<string, unknown>)[field.key]),
+      ),
+    )
+
+    valuesByEntity[entity] = [
+      definition.fields.map((field) => field.header),
+      ...rows,
+    ]
+
+    return valuesByEntity
+  }, {} as SheetGateway extends { getRawValues: () => Promise<infer T> } ? T : never)
+}
+
 export function createMockSheetGateway(
   initialSnapshot = mockCrmSnapshot,
 ): SheetGateway {
   const snapshot = cloneSnapshot(initialSnapshot)
 
   const getSnapshot = async () => cloneSnapshot(snapshot)
+  const getRawValues = async () => createRawValuesFromSnapshot(snapshot)
 
   return {
     getSnapshot,
+    getRawValues,
     async updateProspect(prospectId: string, input: UpdateProspectInput) {
       const prospect = snapshot.prospects.find((item) => item.id === prospectId)
 

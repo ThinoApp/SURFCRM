@@ -2,8 +2,10 @@ import { NavLink, Outlet } from 'react-router-dom'
 
 import BarChartIcon from 'lucide-react/dist/esm/icons/bar-chart-3.mjs'
 import BellIcon from 'lucide-react/dist/esm/icons/bell-check.mjs'
+import ClipboardListIcon from 'lucide-react/dist/esm/icons/clipboard-list.mjs'
 import LayoutDashboardIcon from 'lucide-react/dist/esm/icons/layout-dashboard.mjs'
 import LightbulbIcon from 'lucide-react/dist/esm/icons/lightbulb.mjs'
+import ShieldCheckIcon from 'lucide-react/dist/esm/icons/shield-check.mjs'
 import TargetIcon from 'lucide-react/dist/esm/icons/target.mjs'
 import UsersIcon from 'lucide-react/dist/esm/icons/users-round.mjs'
 
@@ -15,6 +17,8 @@ const navItems = [
   { to: '/relances', label: 'Relances', icon: BellIcon },
   { to: '/outbound', label: 'Outbound', icon: TargetIcon },
   { to: '/insights', label: 'Insights', icon: LightbulbIcon },
+  { to: '/bilans', label: 'Bilans', icon: ClipboardListIcon },
+  { to: '/quality', label: 'Qualite CRM', icon: ShieldCheckIcon },
 ]
 
 export function AppLayout() {

@@ -68,13 +68,13 @@ Modifier `.env`:
 Important:
 
 - partager le Google Sheet avec l'email du service account;
-- garder `VITE_GOOGLE_SHEETS_PROXY_URL=/api/crm`;
+- garder `VITE_GOOGLE_SHEETS_PROXY_URL=https://ton-domaine.com/crm/api`, par exemple `https://crm.surfsoftware.tech/crm/api`;
 - garder `VITE_GOOGLE_SHEETS_SPREADSHEET_ID=` vide en production si le proxy porte deja l'ID.
 
 Si le navigateur tente d'appeler `http://127.0.0.1:8787`, cela veut dire que le front a ete build avec une variable locale. Sur le VPS, corriger `.env`:
 
 ```bash
-VITE_GOOGLE_SHEETS_PROXY_URL=/api/crm
+VITE_GOOGLE_SHEETS_PROXY_URL=https://ton-domaine.com/crm/api
 CRM_ALLOWED_ORIGIN=https://ton-domaine.com
 ```
 

@@ -72,6 +72,22 @@ export function createAppRouter() {
             })),
           ),
         },
+        {
+          path: 'bilans',
+          element: lazyElement(() =>
+            import('../features/weeklyReviews/WeeklyReviewsPage').then((module) => ({
+              default: module.WeeklyReviewsPage,
+            })),
+          ),
+        },
+        {
+          path: 'quality',
+          element: lazyElement(() =>
+            import('../features/quality/QualityPage').then((module) => ({
+              default: module.QualityPage,
+            })),
+          ),
+        },
       ],
     },
   ])

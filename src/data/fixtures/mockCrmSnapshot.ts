@@ -397,6 +397,30 @@ const rawMockCrmSnapshot = {
       sourceProspectId: 'P023',
     },
   ],
+  weeklyReviews: [
+    {
+      reportDate: '2026-06-19',
+      week: '2026-W25',
+      analyzedPeriod: '2026-06-15 au 2026-06-19',
+      executiveSummary:
+        'La semaine a confirme que les conversations les plus utiles viennent des acteurs deja sensibilises au cadrage digital. Le pipeline progresse surtout via les prescripteurs et partenaires potentiels. Les relances restent le point de discipline principal pour eviter de laisser refroidir les signaux positifs.',
+      highlights:
+        'Alfred Ratsararay a signale un besoin recurrent autour de la digitalisation sans priorites claires.\nCoralie Ramakavelo reste une opportunite de pilote sur quelques entrepreneurs.\nLes apprentissages terrain alimentent directement des angles LinkedIn et lead magnets.',
+      keyNumbers:
+        '4 conversations actives\n6 relances a traiter ou surveiller\n3 lead magnets non exploites\n3 apprentissages terrain disponibles',
+      conclusions:
+        'La traction commerciale se joue moins sur le volume que sur la qualite du suivi. Les prescripteurs peuvent devenir un canal fort si les propositions restent concretes, limitees et faciles a tester.',
+      nextWeekImprovements:
+        'Raccourcir les boucles de relance.\nTransformer les apprentissages en posts LinkedIn plus vite.\nMieux separer les prospects client direct, partenaire et prescripteur dans les prochaines actions.',
+      priorityActions:
+        'Relancer Coralie sur le pilote.\nRepondre a Alfred avec un angle de complementarite.\nReclasser les silences anciens en nurturing ou no-response.\nTransformer un lead magnet en post LinkedIn.',
+      risks:
+        'Trop de conversations ouvertes sans prochaine action concrete.\nDes apprentissages utiles peuvent rester inutilises si la production LinkedIn n est pas cadree.',
+      sourcesRead:
+        'Dashboard, Prospects, Messages, Relances, Lead magnets, Apprentissages',
+      status: 'Genere',
+    },
+  ],
 }
 
 export const mockCrmSnapshot = crmSnapshotSchema.parse(

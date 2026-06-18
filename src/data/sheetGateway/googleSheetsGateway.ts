@@ -57,7 +57,7 @@ function createRequestUrl(baseUrl: string, path: string, spreadsheetId: string) 
 export function createGoogleSheetsGateway(
   config: GoogleSheetsGatewayConfig,
 ): SheetGateway {
-  async function requestSnapshot(path: string, init?: RequestInit) {
+  async function requestProxy(path: string, init?: RequestInit) {
     const response = await fetch(
       createRequestUrl(config.proxyBaseUrl, path, config.spreadsheetId),
       {
@@ -76,7 +76,11 @@ export function createGoogleSheetsGateway(
       )
     }
 
-    return parseSnapshotResponse((await response.json()) as SnapshotResponse)
+    return (await response.json()) as SnapshotResponse
+  }
+
+  async function requestSnapshot(path: string, init?: RequestInit) {
+    return parseSnapshotResponse(await requestProxy(path, init))
   }
 
   async function readWithFallback() {
@@ -113,6 +117,15 @@ export function createGoogleSheetsGateway(
 
   return {
     getSnapshot: readWithFallback,
+    async getRawValues() {
+      const response = await requestProxy('/snapshot')
+
+      if ('valuesByEntity' in response && response.valuesByEntity) {
+        return response.valuesByEntity
+      }
+
+      throw new Error('Le proxy Google Sheets ne retourne pas les valeurs brutes.')
+    },
     updateProspect(prospectId: string, input: UpdateProspectInput) {
       return patch(`/prospects/${encodeURIComponent(prospectId)}`, input)
     },

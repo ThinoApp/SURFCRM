@@ -100,4 +100,25 @@ describe('App shell', () => {
 
     expect(await screen.findByText('Deja utilise')).toBeInTheDocument()
   })
+
+  it('renders weekly reviews route', async () => {
+    window.history.pushState({}, '', '/bilans')
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: /Bilans hebdomadaires/i }),
+    ).toBeInTheDocument()
+    expect((await screen.findAllByText('2026-W25')).length).toBeGreaterThan(0)
+    expect(await screen.findByText(/Relancer Coralie sur le pilote/i)).toBeInTheDocument()
+  })
+
+  it('renders CRM quality control route', async () => {
+    window.history.pushState({}, '', '/quality')
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: /Qualité CRM/i }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText(/Checks structurants/i)).toBeInTheDocument()
+  })
 })

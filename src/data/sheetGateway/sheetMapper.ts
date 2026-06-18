@@ -4,6 +4,7 @@ import { messageSchema } from '../schemas/message.schema'
 import { relanceSchema } from '../schemas/relance.schema'
 import { outboundTargetSchema } from '../schemas/outbound.schema'
 import { leadMagnetSchema, apprentissageSchema } from '../schemas/insight.schema'
+import { weeklyReviewSchema } from '../schemas/weeklyReview.schema'
 import { sheetDefinitions, sheetEntityKeys } from './sheetDefinitions'
 import type { SheetDefinition, SheetEntity } from './sheetDefinitions'
 
@@ -140,8 +141,21 @@ export function mapSheetsToCrmSnapshot(
     mapSheetValuesToRecords(sheetDefinitions.apprentissages, valuesByEntity.apprentissages),
     'apprentissages',
   )
+  const weeklyReviews = safeParseRows(
+    weeklyReviewSchema,
+    mapSheetValuesToRecords(sheetDefinitions.weeklyReviews, valuesByEntity.weeklyReviews),
+    'weeklyReviews',
+  )
 
-  return { prospects, messages, relances, outboundTargets, leadMagnets, apprentissages }
+  return {
+    prospects,
+    messages,
+    relances,
+    outboundTargets,
+    leadMagnets,
+    apprentissages,
+    weeklyReviews,
+  }
 }
 
 export function getSheetRangesByEntity(

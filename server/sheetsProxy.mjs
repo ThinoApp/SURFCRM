@@ -64,6 +64,7 @@ const entityOrder = [
   "outboundTargets",
   "leadMagnets",
   "apprentissages",
+  "weeklyReviews",
 ];
 
 const entityTabs = {
@@ -73,6 +74,7 @@ const entityTabs = {
   outboundTargets: "OUTBOUND_POOL",
   leadMagnets: "Lead magnets",
   apprentissages: "Apprentissages",
+  weeklyReviews: "Bilans hebdomadaires",
 };
 
 const entityTabEnv = {
@@ -82,6 +84,7 @@ const entityTabEnv = {
   outboundTargets: "GOOGLE_SHEET_TAB_OUTBOUND_POOL",
   leadMagnets: "GOOGLE_SHEET_TAB_LEAD_MAGNETS",
   apprentissages: "GOOGLE_SHEET_TAB_APPRENTISSAGES",
+  weeklyReviews: "GOOGLE_SHEET_TAB_WEEKLY_REVIEWS",
 };
 
 const entityIdKeys = {
@@ -91,6 +94,11 @@ const entityIdKeys = {
   outboundTargets: "poolId",
   leadMagnets: "id",
   apprentissages: "id",
+  weeklyReviews: "week",
+};
+
+const entityHeaderRows = {
+  weeklyReviews: 1,
 };
 
 // Headers synthétiques pour les onglets qui ne disposent pas d'une ligne
@@ -194,6 +202,21 @@ const fieldAliases = {
   postArchive: ["Archive post"],
   postFormat: ["Format post"],
   contentStatus: ["Statut contenu"],
+
+  reportDate: ["Date du bilan", "Date bilan"],
+  week: ["Semaine", "Week"],
+  analyzedPeriod: ["Periode analysee", "P\u00e9riode analys\u00e9e"],
+  executiveSummary: ["Resume executif", "R\u00e9sum\u00e9 ex\u00e9cutif"],
+  highlights: ["Faits marquants", "Highlights"],
+  keyNumbers: ["Chiffres cles", "Chiffres cl\u00e9s", "Key numbers"],
+  conclusions: ["Conclusions"],
+  nextWeekImprovements: [
+    "Ameliorations semaine prochaine",
+    "Am\u00e9liorations semaine prochaine",
+  ],
+  priorityActions: ["Actions prioritaires"],
+  risks: ["Risques / points de vigilance", "Risques", "Points de vigilance"],
+  sourcesRead: ["Sources lues", "Sources"],
 };
 
 const patchRoutes = [
@@ -233,8 +256,12 @@ function getTabName(entity) {
   return process.env[entityTabEnv[entity]] || entityTabs[entity];
 }
 
+function getHeaderRowNumber(entity) {
+  return entityHeaderRows[entity] || HEADER_ROW_NUMBER;
+}
+
 function getEntityRange(entity) {
-  return `${quoteSheetName(getTabName(entity))}!A${HEADER_ROW_NUMBER}:${READ_LAST_COLUMN}`;
+  return `${quoteSheetName(getTabName(entity))}!A${getHeaderRowNumber(entity)}:${READ_LAST_COLUMN}`;
 }
 
 function getSpreadsheetId(url) {
@@ -467,7 +494,7 @@ async function updateExistingRow(spreadsheetId, entity, id, input) {
     throw new Error(`${entity} introuvable: ${id}`);
   }
 
-  const rowNumber = dataRowIndex + HEADER_ROW_NUMBER + 1;
+  const rowNumber = dataRowIndex + getHeaderRowNumber(entity) + 1;
   const writableEntries = getWritableEntries(headerRow, input);
 
   if (writableEntries.length === 0) {

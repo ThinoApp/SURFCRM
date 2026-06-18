@@ -303,6 +303,69 @@ const apprentissageFields = [
   },
 ] as const
 
+const weeklyReviewFields = [
+  {
+    key: 'reportDate',
+    header: 'reportDate',
+    aliases: ['Date du bilan', 'Date bilan'],
+  },
+  { key: 'week', header: 'week', aliases: ['Semaine', 'Week'] },
+  {
+    key: 'analyzedPeriod',
+    header: 'analyzedPeriod',
+    aliases: ['Periode analysee', 'Période analysée', 'Periode analyse'],
+  },
+  {
+    key: 'executiveSummary',
+    header: 'executiveSummary',
+    aliases: ['Resume executif', 'Résumé exécutif', 'Summary'],
+  },
+  {
+    key: 'highlights',
+    header: 'highlights',
+    aliases: ['Faits marquants', 'Highlights'],
+  },
+  {
+    key: 'keyNumbers',
+    header: 'keyNumbers',
+    aliases: ['Chiffres cles', 'Chiffres clés', 'Key numbers'],
+  },
+  {
+    key: 'conclusions',
+    header: 'conclusions',
+    aliases: ['Conclusions'],
+  },
+  {
+    key: 'nextWeekImprovements',
+    header: 'nextWeekImprovements',
+    aliases: [
+      'Ameliorations semaine prochaine',
+      'Améliorations semaine prochaine',
+      'Improvements',
+    ],
+  },
+  {
+    key: 'priorityActions',
+    header: 'priorityActions',
+    aliases: ['Actions prioritaires', 'Priority actions'],
+  },
+  {
+    key: 'risks',
+    header: 'risks',
+    aliases: [
+      'Risques / points de vigilance',
+      'Risques',
+      'Points de vigilance',
+    ],
+  },
+  {
+    key: 'sourcesRead',
+    header: 'sourcesRead',
+    aliases: ['Sources lues', 'Sources'],
+  },
+  { key: 'status', header: 'status', aliases: ['Statut', 'Status'] },
+] as const
+
 export const sheetDefinitions = {
   prospects: {
     entity: 'prospects',
@@ -339,6 +402,12 @@ export const sheetDefinitions = {
     defaultTabName: 'Apprentissages',
     idKey: 'id',
     fields: apprentissageFields,
+  },
+  weeklyReviews: {
+    entity: 'weeklyReviews',
+    defaultTabName: 'Bilans hebdomadaires',
+    idKey: 'week',
+    fields: weeklyReviewFields,
   },
 } as const satisfies Record<SheetEntity, SheetDefinition>
 

@@ -8,6 +8,7 @@ function createUnavailableGateway(message: string): SheetGateway {
 
   return {
     getSnapshot: reject,
+    getRawValues: reject,
     updateProspect: reject,
     updateRelance: reject,
     updateOutboundTarget: reject,

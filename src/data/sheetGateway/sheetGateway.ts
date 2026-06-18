@@ -6,6 +6,7 @@ import type {
   ProspectStatus,
   RelanceState,
 } from '../domain/crmTypes'
+import type { SheetValuesByEntity } from './sheetMapper'
 
 export type UpdateProspectInput = {
   status?: ProspectStatus
@@ -39,6 +40,7 @@ export type MarkContentUsedInput = {
 
 export type SheetGateway = {
   getSnapshot: () => Promise<CrmSnapshot>
+  getRawValues: () => Promise<SheetValuesByEntity>
   updateProspect: (
     prospectId: string,
     input: UpdateProspectInput,
