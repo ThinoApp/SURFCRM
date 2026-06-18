@@ -10,7 +10,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "sheets:proxy": "node server/sheetsProxy.mjs",
-    "sheets:proxy:check": "node --check server/sheetsProxy.mjs"
+    "sheets:proxy:check": "node --check server/sheetsProxy.mjs",
+    "auth:hash": "node server/createPasswordHash.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",

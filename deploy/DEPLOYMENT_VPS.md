@@ -63,19 +63,34 @@ Modifier `.env`:
 - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
 - `GOOGLE_SHEETS_SPREADSHEET_ID`
 - `CRM_ALLOWED_ORIGIN`
+- `CRM_AUTH_USERNAME`
+- `CRM_AUTH_PASSWORD_HASH`
+- `CRM_SESSION_SECRET`
 - eventuellement les noms d'onglets
 
 Important:
 
 - partager le Google Sheet avec l'email du service account;
-- garder `VITE_GOOGLE_SHEETS_PROXY_URL=https://ton-domaine.com/crm/api`, par exemple `https://crm.surfsoftware.tech/crm/api`;
+- garder `VITE_GOOGLE_SHEETS_PROXY_URL=https://ton-domaine.com/api/crm`, par exemple `https://crm.surfsoftware.tech/api/crm`;
+- garder `VITE_CRM_AUTH_API_URL=https://ton-domaine.com/api/auth`;
 - garder `VITE_GOOGLE_SHEETS_SPREADSHEET_ID=` vide en production si le proxy porte deja l'ID.
+
+Generer le hash du mot de passe et le secret de session:
+
+```bash
+npm run auth:hash -- "mot-de-passe-fort"
+openssl rand -base64 48
+```
 
 Si le navigateur tente d'appeler `http://127.0.0.1:8787`, cela veut dire que le front a ete build avec une variable locale. Sur le VPS, corriger `.env`:
 
 ```bash
-VITE_GOOGLE_SHEETS_PROXY_URL=https://ton-domaine.com/crm/api
+VITE_GOOGLE_SHEETS_PROXY_URL=https://ton-domaine.com/api/crm
+VITE_CRM_AUTH_ENABLED=true
+VITE_CRM_AUTH_API_URL=https://ton-domaine.com/api/auth
 CRM_ALLOWED_ORIGIN=https://ton-domaine.com
+CRM_AUTH_ENABLED=true
+CRM_COOKIE_SECURE=true
 ```
 
 Puis rebuild/redeploy.
@@ -178,7 +193,12 @@ sudo certbot --nginx -d ton-domaine.com
 Backend:
 
 ```bash
-curl http://127.0.0.1:8787/api/crm/health
+curl http://127.0.0.1:8787/api/auth/session
+curl -c /tmp/surf-crm.cookies \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"MOT_DE_PASSE"}' \
+  http://127.0.0.1:8787/api/auth/login
+curl -b /tmp/surf-crm.cookies http://127.0.0.1:8787/api/crm/health
 pm2 logs surf-crm-api
 ```
 
@@ -237,3 +257,6 @@ sudo systemctl reload nginx
 - Le proxy doit rester lie a `127.0.0.1`.
 - Ne jamais committer `.env`.
 - Le service account doit avoir uniquement acces au Google Sheet du CRM.
+- Utiliser `CRM_AUTH_PASSWORD_HASH`, pas un mot de passe en clair.
+- Garder `CRM_SESSION_SECRET` long et unique par environnement.
+- Activer HTTPS avant de garder `CRM_COOKIE_SECURE=true`.

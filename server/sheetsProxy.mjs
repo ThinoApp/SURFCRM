@@ -1,4 +1,11 @@
-import { createSign } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  createSign,
+  randomBytes,
+  scryptSync,
+  timingSafeEqual,
+} from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
@@ -53,6 +60,27 @@ const DEFAULT_PORT = 8787;
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_SHEETS_BASE_URL = "https://sheets.googleapis.com/v4/spreadsheets";
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+const AUTH_ENABLED = parseBooleanEnv(process.env.CRM_AUTH_ENABLED, false);
+const AUTH_USERNAME = process.env.CRM_AUTH_USERNAME || "admin";
+const AUTH_PASSWORD_HASH = process.env.CRM_AUTH_PASSWORD_HASH || "";
+const AUTH_PASSWORD = process.env.CRM_AUTH_PASSWORD || "";
+const SESSION_SECRET = process.env.CRM_SESSION_SECRET || "";
+const SESSION_TTL_SECONDS = parsePositiveNumber(
+  process.env.CRM_SESSION_TTL_SECONDS,
+  60 * 60 * 8,
+);
+const SESSION_COOKIE_NAME =
+  process.env.CRM_SESSION_COOKIE_NAME || "surf_crm_session";
+const SESSION_COOKIE_SECURE = parseBooleanEnv(
+  process.env.CRM_COOKIE_SECURE,
+  process.env.NODE_ENV === "production",
+);
+const MAX_FAILED_LOGINS = parsePositiveNumber(
+  process.env.CRM_AUTH_MAX_FAILED_LOGINS,
+  5,
+);
+const LOGIN_WINDOW_MS =
+  parsePositiveNumber(process.env.CRM_AUTH_WINDOW_SECONDS, 15 * 60) * 1000;
 
 const HEADER_ROW_NUMBER = Number(process.env.GOOGLE_SHEET_HEADER_ROW || 3);
 const READ_LAST_COLUMN = process.env.GOOGLE_SHEET_READ_LAST_COLUMN || "Z";
@@ -243,6 +271,353 @@ const postRoutes = [
 
 let cachedAccessToken = null;
 let cachedAccessTokenExpiresAt = 0;
+const activeSessions = new Map();
+const failedLoginAttempts = new Map();
+
+validateAuthConfig();
+
+function parseBooleanEnv(value, defaultValue) {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  return ["1", "true", "yes", "oui"].includes(value.trim().toLowerCase());
+}
+
+function parsePositiveNumber(value, defaultValue) {
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return defaultValue;
+  }
+
+  return parsedValue;
+}
+
+function validateAuthConfig() {
+  if (!AUTH_ENABLED) {
+    return;
+  }
+
+  const missingSettings = [];
+
+  if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
+    missingSettings.push("CRM_SESSION_SECRET (32 caracteres minimum)");
+  }
+
+  if (!AUTH_PASSWORD_HASH && !AUTH_PASSWORD) {
+    missingSettings.push("CRM_AUTH_PASSWORD_HASH");
+  }
+
+  if (missingSettings.length > 0) {
+    throw new Error(
+      `Configuration auth incomplete: ${missingSettings.join(", ")}.`,
+    );
+  }
+
+  if (AUTH_PASSWORD && !AUTH_PASSWORD_HASH) {
+    console.warn(
+      "CRM_AUTH_PASSWORD est accepte comme secours. Utilisez CRM_AUTH_PASSWORD_HASH en production.",
+    );
+  }
+}
+
+function digestText(value) {
+  return createHash("sha256").update(String(value)).digest();
+}
+
+function timingSafeEqualText(left, right) {
+  return timingSafeEqual(digestText(left), digestText(right));
+}
+
+function verifyScryptPassword(password, passwordHash) {
+  const [, salt, storedHash] = passwordHash.split("$");
+
+  if (!salt || !storedHash) {
+    return false;
+  }
+
+  try {
+    const expectedKey = Buffer.from(storedHash, "base64url");
+    const actualKey = scryptSync(password, salt, expectedKey.length);
+
+    return (
+      actualKey.length === expectedKey.length &&
+      timingSafeEqual(actualKey, expectedKey)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function verifyPassword(password) {
+  if (AUTH_PASSWORD_HASH) {
+    if (!AUTH_PASSWORD_HASH.startsWith("scrypt$")) {
+      return false;
+    }
+
+    return verifyScryptPassword(password, AUTH_PASSWORD_HASH);
+  }
+
+  return AUTH_PASSWORD ? timingSafeEqualText(password, AUTH_PASSWORD) : false;
+}
+
+function parseCookies(request) {
+  const cookieHeader = request.headers.cookie || "";
+
+  return cookieHeader.split(";").reduce((cookies, cookie) => {
+    const separatorIndex = cookie.indexOf("=");
+
+    if (separatorIndex < 1) {
+      return cookies;
+    }
+
+    const key = cookie.slice(0, separatorIndex).trim();
+    const value = cookie.slice(separatorIndex + 1).trim();
+
+    try {
+      cookies[key] = decodeURIComponent(value);
+    } catch {
+      cookies[key] = value;
+    }
+
+    return cookies;
+  }, {});
+}
+
+function createSessionSignature(token) {
+  return createHmac("sha256", SESSION_SECRET).update(token).digest("base64url");
+}
+
+function createSession() {
+  pruneExpiredSessions();
+
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = Date.now() + SESSION_TTL_SECONDS * 1000;
+
+  activeSessions.set(token, {
+    expiresAt,
+    username: AUTH_USERNAME,
+  });
+
+  return `${token}.${createSessionSignature(token)}`;
+}
+
+function readSessionToken(request) {
+  const sessionValue = parseCookies(request)[SESSION_COOKIE_NAME];
+
+  if (!sessionValue) {
+    return null;
+  }
+
+  const [token, signature] = sessionValue.split(".");
+
+  if (!token || !signature) {
+    return null;
+  }
+
+  const expectedSignature = createSessionSignature(token);
+
+  if (!timingSafeEqualText(signature, expectedSignature)) {
+    return null;
+  }
+
+  return token;
+}
+
+function getValidSession(request) {
+  if (!AUTH_ENABLED) {
+    return {
+      expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000,
+      username: AUTH_USERNAME,
+    };
+  }
+
+  const token = readSessionToken(request);
+
+  if (!token) {
+    return null;
+  }
+
+  const session = activeSessions.get(token);
+
+  if (!session) {
+    return null;
+  }
+
+  if (Date.now() >= session.expiresAt) {
+    activeSessions.delete(token);
+    return null;
+  }
+
+  return session;
+}
+
+function destroySession(request) {
+  const token = readSessionToken(request);
+
+  if (token) {
+    activeSessions.delete(token);
+  }
+}
+
+function pruneExpiredSessions() {
+  const now = Date.now();
+
+  for (const [token, session] of activeSessions) {
+    if (now >= session.expiresAt) {
+      activeSessions.delete(token);
+    }
+  }
+}
+
+function buildSessionCookie(value, maxAgeSeconds) {
+  return [
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(value)}`,
+    "HttpOnly",
+    "SameSite=Lax",
+    "Path=/",
+    `Max-Age=${maxAgeSeconds}`,
+    SESSION_COOKIE_SECURE ? "Secure" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
+
+function getClientAddress(request) {
+  const forwardedFor = request.headers["x-forwarded-for"];
+
+  if (typeof forwardedFor === "string" && forwardedFor) {
+    return forwardedFor.split(",")[0].trim();
+  }
+
+  return request.socket.remoteAddress || "unknown";
+}
+
+function getLoginAttemptKey(request, username) {
+  return `${getClientAddress(request)}:${String(username).trim().toLowerCase()}`;
+}
+
+function isLoginRateLimited(key) {
+  const attempt = failedLoginAttempts.get(key);
+
+  if (!attempt || Date.now() >= attempt.resetAt) {
+    failedLoginAttempts.delete(key);
+    return false;
+  }
+
+  return attempt.count >= MAX_FAILED_LOGINS;
+}
+
+function recordLoginFailure(key) {
+  const now = Date.now();
+  const attempt = failedLoginAttempts.get(key);
+
+  if (!attempt || now >= attempt.resetAt) {
+    failedLoginAttempts.set(key, {
+      count: 1,
+      resetAt: now + LOGIN_WINDOW_MS,
+    });
+    return;
+  }
+
+  attempt.count += 1;
+}
+
+function clearLoginFailures(key) {
+  failedLoginAttempts.delete(key);
+}
+
+function buildSessionPayload(request) {
+  const session = getValidSession(request);
+
+  return {
+    authEnabled: AUTH_ENABLED,
+    authenticated: Boolean(session),
+    username: session?.username,
+  };
+}
+
+async function handleAuthRequest(request, response, url) {
+  if (request.method === "GET" && url.pathname === "/api/auth/session") {
+    sendJson(response, 200, buildSessionPayload(request));
+    return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/login") {
+    if (!AUTH_ENABLED) {
+      sendJson(response, 200, buildSessionPayload(request));
+      return true;
+    }
+
+    const body = await readBody(request);
+    const username = String(body.username ?? "");
+    const password = String(body.password ?? "");
+    const attemptKey = getLoginAttemptKey(request, username);
+
+    if (isLoginRateLimited(attemptKey)) {
+      sendJson(response, 429, {
+        error: "Trop de tentatives. Reessayez dans quelques minutes.",
+      });
+      return true;
+    }
+
+    if (
+      !timingSafeEqualText(username, AUTH_USERNAME) ||
+      !verifyPassword(password)
+    ) {
+      recordLoginFailure(attemptKey);
+      sendJson(response, 401, {
+        error: "Identifiants invalides.",
+      });
+      return true;
+    }
+
+    clearLoginFailures(attemptKey);
+    response.setHeader(
+      "Set-Cookie",
+      buildSessionCookie(createSession(), SESSION_TTL_SECONDS),
+    );
+    sendJson(response, 200, {
+      authEnabled: AUTH_ENABLED,
+      authenticated: true,
+      username: AUTH_USERNAME,
+    });
+    return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+    if (AUTH_ENABLED) {
+      destroySession(request);
+    }
+
+    response.setHeader("Set-Cookie", buildSessionCookie("", 0));
+    sendJson(response, 200, {
+      authEnabled: AUTH_ENABLED,
+      authenticated: !AUTH_ENABLED,
+      username: !AUTH_ENABLED ? AUTH_USERNAME : undefined,
+    });
+    return true;
+  }
+
+  return false;
+}
+
+function requireAuthenticatedRequest(request, response, url) {
+  if (!AUTH_ENABLED || !url.pathname.startsWith("/api/crm/")) {
+    return true;
+  }
+
+  if (getValidSession(request)) {
+    return true;
+  }
+
+  sendJson(response, 401, {
+    error: "Authentification requise.",
+  });
+
+  return false;
+}
 
 function normalizeHeader(value) {
   return String(value ?? "")
@@ -579,6 +954,8 @@ function writeCorsHeaders(response) {
   );
   response.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  response.setHeader("Access-Control-Allow-Credentials", "true");
+  response.setHeader("Vary", "Origin");
 }
 
 function sendJson(response, statusCode, payload) {
@@ -627,6 +1004,16 @@ async function handleRequest(request, response) {
   const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
 
   try {
+    if (url.pathname.startsWith("/api/auth/")) {
+      if (await handleAuthRequest(request, response, url)) {
+        return;
+      }
+    }
+
+    if (!requireAuthenticatedRequest(request, response, url)) {
+      return;
+    }
+
     if (request.method === "GET" && url.pathname === "/api/crm/health") {
       sendJson(response, 200, {
         ok: true,

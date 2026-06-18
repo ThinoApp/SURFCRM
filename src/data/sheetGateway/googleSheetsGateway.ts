@@ -62,6 +62,7 @@ export function createGoogleSheetsGateway(
       createRequestUrl(config.proxyBaseUrl, path, config.spreadsheetId),
       {
         ...init,
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(init?.headers ?? {}),

@@ -5,10 +5,12 @@ import BellIcon from 'lucide-react/dist/esm/icons/bell-check.mjs'
 import ClipboardListIcon from 'lucide-react/dist/esm/icons/clipboard-list.mjs'
 import LayoutDashboardIcon from 'lucide-react/dist/esm/icons/layout-dashboard.mjs'
 import LightbulbIcon from 'lucide-react/dist/esm/icons/lightbulb.mjs'
+import LogOutIcon from 'lucide-react/dist/esm/icons/log-out.mjs'
 import ShieldCheckIcon from 'lucide-react/dist/esm/icons/shield-check.mjs'
 import TargetIcon from 'lucide-react/dist/esm/icons/target.mjs'
 import UsersIcon from 'lucide-react/dist/esm/icons/users-round.mjs'
 
+import { useAuth } from '../../features/auth/authContext'
 import { GatewayStatusBanner } from './GatewayStatusBanner'
 
 const navItems = [
@@ -22,6 +24,8 @@ const navItems = [
 ]
 
 export function AppLayout() {
+  const { authEnabled, logout, username } = useAuth()
+
   return (
     <div className="app-frame">
       <aside className="sidebar" aria-label="Navigation principale">
@@ -54,6 +58,21 @@ export function AppLayout() {
             )
           })}
         </nav>
+
+        {authEnabled ? (
+          <div className="sidebar-session">
+            <span className="sidebar-session__user">{username}</span>
+            <button
+              className="sidebar-session__button"
+              title="Se deconnecter"
+              type="button"
+              onClick={() => void logout()}
+            >
+              <LogOutIcon size={17} strokeWidth={2.2} aria-hidden="true" />
+              <span>Deconnexion</span>
+            </button>
+          </div>
+        ) : null}
       </aside>
 
       <div className="app-content">

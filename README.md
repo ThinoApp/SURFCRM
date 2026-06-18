@@ -11,6 +11,7 @@ npm run lint
 npm run test
 npm run sheets:proxy
 npm run sheets:proxy:check
+npm run auth:hash -- "mot-de-passe"
 ```
 
 ## Mode mock
@@ -45,6 +46,28 @@ npm run dev
 ```
 
 Le proxy expose `http://127.0.0.1:8787/api/crm`.
+
+## Authentification CRM
+
+Le login est desactive par defaut en local. Pour l'activer:
+
+```bash
+npm run auth:hash -- "mot-de-passe-fort"
+```
+
+Puis renseigner les variables:
+
+```bash
+VITE_CRM_AUTH_ENABLED=true
+VITE_CRM_AUTH_API_URL=http://127.0.0.1:8787/api/auth
+CRM_AUTH_ENABLED=true
+CRM_AUTH_USERNAME=admin
+CRM_AUTH_PASSWORD_HASH="scrypt$..."
+CRM_SESSION_SECRET="secret-long-aleatoire"
+CRM_COOKIE_SECURE=false
+```
+
+Quand l'auth est activee, les routes `/api/crm/*` refusent les requetes sans cookie de session `HttpOnly`.
 
 ## Onglets attendus
 
