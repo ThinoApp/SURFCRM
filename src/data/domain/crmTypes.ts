@@ -21,9 +21,19 @@ export const prospectStatuses = [
 
 export type ProspectStatus = (typeof prospectStatuses)[number]
 
-export const relanceStates = ['A faire', 'Fait', 'Planifie', 'Ignore'] as const
+export const relanceStates = [
+  'A faire',
+  'Fait',
+  'Planifie',
+  'Ignore',
+  'Annulé - réponse reçue',
+] as const
 
 export type RelanceState = (typeof relanceStates)[number]
+
+export function isRelanceDoneState(state: RelanceState) {
+  return state === 'Fait' || state === 'Annulé - réponse reçue'
+}
 
 export const outboundStatuses = [
   'new',

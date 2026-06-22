@@ -11,6 +11,27 @@ describe('deriveDashboardMetrics', () => {
     expect(metrics.upcomingRelances.map((item) => item.id)).toContain('R003')
   })
 
+  it('treats cancelled relances with reply as done', () => {
+    const snapshot = structuredClone(mockCrmSnapshot)
+
+    snapshot.relances.push({
+      id: 'R999',
+      date: '2026-06-10',
+      prospectName: 'Prospect avec reponse',
+      action: 'Relance annulee car reponse recue',
+      reference: 'Reponse recue avant relance',
+      state: 'Annulé - réponse reçue',
+      prospectId: 'P001',
+    })
+
+    const metrics = deriveDashboardMetrics(snapshot, '2026-06-17')
+
+    expect(metrics.overdueRelances.map((item) => item.id)).not.toContain('R999')
+    expect(metrics.relancesByState).toEqual(
+      expect.arrayContaining([expect.objectContaining({ status: 'Fait' })]),
+    )
+  })
+
   it('derives content and conversation signals', () => {
     const metrics = deriveDashboardMetrics(mockCrmSnapshot, '2026-06-17')
 

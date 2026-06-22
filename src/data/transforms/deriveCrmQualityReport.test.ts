@@ -16,7 +16,7 @@ describe('deriveCrmQualityReport', () => {
       ],
       relances: [
         ['ID', 'Date', 'Prospect', 'Action', 'Etat', 'Prospect ID'],
-        ['R001', '2026-06-18', 'Alice', 'Relancer', 'Annulé - réponse reçue', 'P001'],
+        ['R001', '2026-06-18', 'Alice', 'Relancer', 'Etat inconnu', 'P001'],
       ],
     })
 
@@ -31,7 +31,7 @@ describe('deriveCrmQualityReport', () => {
     expect(report.issues.some((issue) => issue.title === 'État relance non standard')).toBe(true)
   })
 
-  it('returns an empty report for a coherent minimal CRM', () => {
+  it('accepts cancelled relances with reply as coherent', () => {
     const report = deriveCrmQualityReport({
       prospects: [
         ['ID', 'Contact', 'Organisation', 'LinkedIn', 'Statut'],
@@ -43,7 +43,7 @@ describe('deriveCrmQualityReport', () => {
       ],
       relances: [
         ['ID', 'Date', 'Prospect', 'Action', 'Etat', 'Prospect ID'],
-        ['R001', '2026-06-18', 'Alice', 'Relancer', 'A faire', 'P001'],
+        ['R001', '2026-06-18', 'Alice', 'Relancer', 'Annulé - réponse reçue', 'P001'],
       ],
     })
 

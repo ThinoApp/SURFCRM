@@ -6,6 +6,7 @@ import type {
   Prospect,
   Relance,
 } from '../domain/crmTypes'
+import { isRelanceDoneState } from '../domain/crmTypes'
 import { selectNextOutboundTarget } from './selectNextOutboundTarget'
 
 export type DashboardStatusItem = {
@@ -38,13 +39,19 @@ function countBy<T>(items: T[], getKey: (item: T) => string) {
   return [...counts.entries()].map(([status, count]) => ({ status, count }))
 }
 
+function getRelanceMetricState(relance: Relance) {
+  return isRelanceDoneState(relance.state) ? 'Fait' : relance.state
+}
+
 export function deriveDashboardMetrics(
   snapshot: CrmSnapshot,
   today: string,
 ): DashboardMetrics {
-  const activeRelances = snapshot.relances.filter(
-    (relance) => relance.state === 'A faire' || relance.state === 'Planifie',
-  )
+  const activeRelances = snapshot.relances.filter((relance) => {
+    if (isRelanceDoneState(relance.state)) return false
+
+    return relance.state === 'A faire' || relance.state === 'Planifie'
+  })
 
   const dueTodayRelances = activeRelances.filter(
     (relance) => relance.date === today,
@@ -85,7 +92,7 @@ export function deriveDashboardMetrics(
     unusedLeadMagnets,
     nextOutboundTarget: selectNextOutboundTarget(snapshot),
     prospectsByStatus: countBy(snapshot.prospects, (prospect) => prospect.status),
-    relancesByState: countBy(snapshot.relances, (relance) => relance.state),
+    relancesByState: countBy(snapshot.relances, getRelanceMetricState),
     conversationSignalData: [
       { status: 'Conversations', count: activeConversations.length },
       { status: 'Sans reponse', count: contactedWithoutReply.length },

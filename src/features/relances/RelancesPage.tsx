@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import type { Relance } from '../../data/domain/crmTypes'
+import { isRelanceDoneState, type Relance } from '../../data/domain/crmTypes'
 import {
   useCrmSnapshot,
   useUpdateRelance,
@@ -30,7 +30,7 @@ function RelanceCard({ relance }: { relance: Relance }) {
         </div>
         <button
           className="button"
-          disabled={updateRelance.isPending || relance.state === 'Fait'}
+          disabled={updateRelance.isPending || isRelanceDoneState(relance.state)}
           type="button"
           onClick={() =>
             updateRelance.mutate({
@@ -140,7 +140,7 @@ export function RelancesPage() {
 
     const metrics = deriveDashboardMetrics(snapshotQuery.data, today)
     const doneRelances = snapshotQuery.data.relances.filter(
-      (relance) => relance.state === 'Fait',
+      (relance) => isRelanceDoneState(relance.state),
     )
 
     return {

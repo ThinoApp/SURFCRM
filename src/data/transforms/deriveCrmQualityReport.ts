@@ -64,7 +64,13 @@ const idPatterns: Partial<Record<SheetEntity, RegExp>> = {
 }
 
 const allowedMessageDirections = new Set(['Entrant', 'Sortant'])
-const allowedRelanceStates = new Set(['A faire', 'Fait', 'Planifie', 'Ignore'])
+const allowedRelanceStates = new Set([
+  'A faire',
+  'Fait',
+  'Planifie',
+  'Ignore',
+  'Annulé - réponse reçue',
+])
 
 function hasCellValue(row: string[]) {
   return row.some((cell) => cell.trim().length > 0)
@@ -465,7 +471,7 @@ function checkAllowedValues(
         'warning',
         'État relance non standard',
         `${state} n'est pas un état strictement reconnu par le CRM.`,
-        'Utiliser A faire, Fait, Planifie ou Ignore, et garder le détail dans la référence.',
+        'Utiliser A faire, Fait, Planifie, Ignore ou Annulé - réponse reçue, et garder le détail dans la référence.',
       )
     }
   }
