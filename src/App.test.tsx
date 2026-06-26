@@ -10,6 +10,9 @@ describe('App shell', () => {
 
     expect(screen.getByText('SURF CRM')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Questionnaire/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Waitlist/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Feedback/i })).toBeInTheDocument()
     expect(
       await screen.findByRole('heading', { name: /Actions du jour/i }),
     ).toBeInTheDocument()
@@ -110,6 +113,20 @@ describe('App shell', () => {
     ).toBeInTheDocument()
     expect((await screen.findAllByText('2026-W25')).length).toBeGreaterThan(0)
     expect(await screen.findByText(/Relancer Coralie sur le pilote/i)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['/questionnaire', 'Questionnaire', 'Xavier N.'],
+    ['/waitlist', 'Waitlist', 'Iary R.'],
+    ['/feedback', 'Feedback', 'Beta tester 1'],
+  ])('renders the %s raw Sheet route', async (route, heading, expectedValue) => {
+    window.history.pushState({}, '', route)
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: heading }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText(expectedValue)).toBeInTheDocument()
   })
 
   it('renders CRM quality control route', async () => {

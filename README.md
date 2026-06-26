@@ -77,6 +77,10 @@ Quand l'auth est activee, les routes `/api/crm/*` refusent les requetes sans coo
 - `OUTBOUND_POOL`
 - `Lead magnets`
 - `Apprentissages`
+- `Bilans hebdomadaires`
+- `LINKEDIN_FILTER_RESPONSES`
+- `LINKEDIN_MISSION_CONTROL_WAITLIST`
+- `LINKEDIN_MISSION_CONTROL_FEEDBACK`
 
 Les noms d'onglets peuvent etre remplaces avec:
 
@@ -86,6 +90,10 @@ Les noms d'onglets peuvent etre remplaces avec:
 - `GOOGLE_SHEET_TAB_OUTBOUND_POOL`
 - `GOOGLE_SHEET_TAB_LEAD_MAGNETS`
 - `GOOGLE_SHEET_TAB_APPRENTISSAGES`
+- `GOOGLE_SHEET_TAB_WEEKLY_REVIEWS`
+- `GOOGLE_SHEET_TAB_QUESTIONNAIRE`
+- `GOOGLE_SHEET_TAB_WAITLIST`
+- `GOOGLE_SHEET_TAB_FEEDBACK`
 
 ## Mutations MVP
 

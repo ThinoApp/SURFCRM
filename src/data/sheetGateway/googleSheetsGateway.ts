@@ -1,11 +1,13 @@
 import type { CrmSnapshot } from '../domain/crmTypes'
 import type {
   MarkContentUsedInput,
+  RawSheetPayload,
   SheetGateway,
   UpdateOutboundInput,
   UpdateProspectInput,
   UpdateRelanceInput,
 } from './sheetGateway'
+import type { RawSheetKey } from './sheetGateway'
 import { mapSheetsToCrmSnapshot } from './sheetMapper'
 import type { SheetValuesByEntity } from './sheetMapper'
 
@@ -20,6 +22,8 @@ export type GoogleSheetsGatewayConfig = {
 type SnapshotResponse =
   | { snapshot: CrmSnapshot; valuesByEntity?: never }
   | { snapshot?: never; valuesByEntity: SheetValuesByEntity }
+
+type RawSheetResponse = RawSheetPayload
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, '')
@@ -57,7 +61,10 @@ function createRequestUrl(baseUrl: string, path: string, spreadsheetId: string) 
 export function createGoogleSheetsGateway(
   config: GoogleSheetsGatewayConfig,
 ): SheetGateway {
-  async function requestProxy(path: string, init?: RequestInit) {
+  async function requestProxy<TResponse = SnapshotResponse>(
+    path: string,
+    init?: RequestInit,
+  ) {
     const response = await fetch(
       createRequestUrl(config.proxyBaseUrl, path, config.spreadsheetId),
       {
@@ -77,7 +84,7 @@ export function createGoogleSheetsGateway(
       )
     }
 
-    return (await response.json()) as SnapshotResponse
+    return (await response.json()) as TResponse
   }
 
   async function requestSnapshot(path: string, init?: RequestInit) {
@@ -126,6 +133,25 @@ export function createGoogleSheetsGateway(
       }
 
       throw new Error('Le proxy Google Sheets ne retourne pas les valeurs brutes.')
+    },
+    async getRawSheet(key: RawSheetKey) {
+      try {
+        return await requestProxy<RawSheetResponse>(
+          `/raw-sheets/${encodeURIComponent(key)}`,
+        )
+      } catch (error) {
+        const readableError = toReadableError(error)
+
+        if (config.debug) {
+          console.warn(readableError)
+        }
+
+        if (config.allowMockFallback && config.fallbackGateway) {
+          return config.fallbackGateway.getRawSheet(key)
+        }
+
+        throw readableError
+      }
     },
     updateProspect(prospectId: string, input: UpdateProspectInput) {
       return patch(`/prospects/${encodeURIComponent(prospectId)}`, input)

@@ -61,6 +61,7 @@ a {
   color: var(--surf-sidebar-text);
   background: var(--surf-sidebar);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-y: auto;
 }
 
 .brand-block {
@@ -130,6 +131,41 @@ a {
   color: #ffffff;
   background: rgba(11, 99, 246, 0.22);
   box-shadow: inset 3px 0 0 var(--surf-cyan);
+}
+
+.raw-sheet-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--surf-space-4);
+}
+
+.raw-sheet-summary article {
+  display: grid;
+  min-height: 104px;
+  align-content: space-between;
+  gap: var(--surf-space-3);
+  padding: var(--surf-space-4);
+  background: #ffffff;
+  border: 1px solid var(--surf-border);
+  border-radius: var(--surf-radius-lg);
+  box-shadow: var(--surf-shadow-soft);
+}
+
+.raw-sheet-summary span {
+  color: var(--surf-ink-soft);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.raw-sheet-summary strong {
+  overflow: hidden;
+  color: var(--surf-ink);
+  font-size: 1rem;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-session {

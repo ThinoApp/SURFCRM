@@ -3,6 +3,8 @@ import type { CrmSnapshot } from '../domain/crmTypes'
 import { sheetDefinitions, sheetEntityKeys } from './sheetDefinitions'
 import type {
   MarkContentUsedInput,
+  RawSheetKey,
+  RawSheetPayload,
   SheetGateway,
   UpdateOutboundInput,
   UpdateProspectInput,
@@ -47,6 +49,48 @@ function createRawValuesFromSnapshot(snapshot: CrmSnapshot) {
   }, {} as SheetGateway extends { getRawValues: () => Promise<infer T> } ? T : never)
 }
 
+const mockRawSheets: Record<RawSheetKey, RawSheetPayload> = {
+  questionnaire: {
+    key: 'questionnaire',
+    tabName: 'questionnaire',
+    values: [
+      ['Horodateur', 'Nom', 'Profil LinkedIn', 'Objectif principal', 'Frequence LinkedIn'],
+      [
+        '2026-06-24 14:10',
+        'Xavier N.',
+        'https://www.linkedin.com/in/example',
+        'Identifier des signaux marche et conversations utiles',
+        'Quotidienne',
+      ],
+      [
+        '2026-06-24 15:42',
+        'Davide B.',
+        '',
+        'Faire de la veille et reperer des contacts a relancer',
+        'Hebdomadaire',
+      ],
+    ],
+  },
+  waitlist: {
+    key: 'waitlist',
+    tabName: 'waitlist',
+    values: [
+      ['Horodateur', 'Nom', 'Contact', 'Role', 'Mission prioritaire'],
+      ['2026-06-25 09:02', 'Iary R.', 'iary@example.com', 'Founder', 'Veille sectorielle'],
+      ['2026-06-25 11:18', 'Manda R.', 'manda@example.com', 'Consultant', 'Prospection'],
+    ],
+  },
+  feedback: {
+    key: 'feedback',
+    tabName: 'Feedback',
+    values: [
+      ['Horodateur', 'Nom', 'Mission', 'Score rapport', 'Blocage principal'],
+      ['2026-06-25 18:22', 'Beta tester 1', 'Veille sectorielle', '4', 'Installation'],
+      ['2026-06-26 08:34', 'Beta tester 2', 'Prospection', '5', 'Aucun'],
+    ],
+  },
+}
+
 export function createMockSheetGateway(
   initialSnapshot = mockCrmSnapshot,
 ): SheetGateway {
@@ -54,10 +98,12 @@ export function createMockSheetGateway(
 
   const getSnapshot = async () => cloneSnapshot(snapshot)
   const getRawValues = async () => createRawValuesFromSnapshot(snapshot)
+  const getRawSheet = async (key: RawSheetKey) => structuredClone(mockRawSheets[key])
 
   return {
     getSnapshot,
     getRawValues,
+    getRawSheet,
     async updateProspect(prospectId: string, input: UpdateProspectInput) {
       const prospect = snapshot.prospects.find((item) => item.id === prospectId)
 

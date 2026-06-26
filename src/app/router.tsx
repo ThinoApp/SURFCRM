@@ -81,6 +81,30 @@ export function createAppRouter() {
           ),
         },
         {
+          path: 'questionnaire',
+          element: lazyElement(() =>
+            import('../features/rawSheets/RawSheetPage').then((module) => ({
+              default: module.QuestionnaireSheetPage,
+            })),
+          ),
+        },
+        {
+          path: 'waitlist',
+          element: lazyElement(() =>
+            import('../features/rawSheets/RawSheetPage').then((module) => ({
+              default: module.WaitlistSheetPage,
+            })),
+          ),
+        },
+        {
+          path: 'feedback',
+          element: lazyElement(() =>
+            import('../features/rawSheets/RawSheetPage').then((module) => ({
+              default: module.FeedbackSheetPage,
+            })),
+          ),
+        },
+        {
           path: 'quality',
           element: lazyElement(() =>
             import('../features/quality/QualityPage').then((module) => ({

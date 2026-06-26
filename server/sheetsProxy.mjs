@@ -115,6 +115,18 @@ const entityTabEnv = {
   weeklyReviews: "GOOGLE_SHEET_TAB_WEEKLY_REVIEWS",
 };
 
+const rawSheetTabs = {
+  questionnaire: "LINKEDIN_FILTER_RESPONSES",
+  waitlist: "LINKEDIN_MISSION_CONTROL_WAITLIST",
+  feedback: "LINKEDIN_MISSION_CONTROL_FEEDBACK",
+};
+
+const rawSheetTabEnv = {
+  questionnaire: "GOOGLE_SHEET_TAB_QUESTIONNAIRE",
+  waitlist: "GOOGLE_SHEET_TAB_WAITLIST",
+  feedback: "GOOGLE_SHEET_TAB_FEEDBACK",
+};
+
 const entityIdKeys = {
   prospects: "id",
   messages: "messageId",
@@ -631,12 +643,20 @@ function getTabName(entity) {
   return process.env[entityTabEnv[entity]] || entityTabs[entity];
 }
 
+function getRawSheetTabName(key) {
+  return process.env[rawSheetTabEnv[key]] || rawSheetTabs[key];
+}
+
 function getHeaderRowNumber(entity) {
   return entityHeaderRows[entity] || HEADER_ROW_NUMBER;
 }
 
 function getEntityRange(entity) {
   return `${quoteSheetName(getTabName(entity))}!A${getHeaderRowNumber(entity)}:${READ_LAST_COLUMN}`;
+}
+
+function getRawSheetRange(key) {
+  return `${quoteSheetName(getRawSheetTabName(key))}!A1:${READ_LAST_COLUMN}`;
 }
 
 function getSpreadsheetId(url) {
@@ -819,6 +839,21 @@ async function readEntityValues(spreadsheetId, entity) {
   }
 
   return values;
+}
+
+async function readRawSheetValues(spreadsheetId, key) {
+  if (!rawSheetTabs[key]) {
+    throw new Error(`Onglet brut non autorise: ${key}`);
+  }
+
+  const range = encodeURIComponent(getRawSheetRange(key));
+  const payload = await googleSheetsFetch(spreadsheetId, `/values/${range}`);
+
+  return {
+    key,
+    tabName: getRawSheetTabName(key),
+    values: payload.values ?? [],
+  };
 }
 
 async function readValuesByEntity(spreadsheetId) {
@@ -1022,6 +1057,9 @@ async function handleRequest(request, response) {
         tabs: Object.fromEntries(
           entityOrder.map((entity) => [entity, getTabName(entity)]),
         ),
+        rawTabs: Object.fromEntries(
+          Object.keys(rawSheetTabs).map((key) => [key, getRawSheetTabName(key)]),
+        ),
       });
       return;
     }
@@ -1034,6 +1072,21 @@ async function handleRequest(request, response) {
         valuesByEntity,
       });
       return;
+    }
+
+    if (request.method === "GET") {
+      const rawSheetMatch = url.pathname.match(/^\/api\/crm\/raw-sheets\/([^/]+)$/);
+
+      if (rawSheetMatch?.[1]) {
+        const spreadsheetId = requireSpreadsheetId(url);
+        const payload = await readRawSheetValues(
+          spreadsheetId,
+          decodeURIComponent(rawSheetMatch[1]),
+        );
+
+        sendJson(response, 200, payload);
+        return;
+      }
     }
 
     if (request.method === "PATCH") {

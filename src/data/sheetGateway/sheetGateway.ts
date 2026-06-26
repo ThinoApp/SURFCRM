@@ -8,6 +8,16 @@ import type {
 } from '../domain/crmTypes'
 import type { SheetValuesByEntity } from './sheetMapper'
 
+export const rawSheetKeys = ['questionnaire', 'waitlist', 'feedback'] as const
+
+export type RawSheetKey = (typeof rawSheetKeys)[number]
+
+export type RawSheetPayload = {
+  key: RawSheetKey
+  tabName: string
+  values: string[][]
+}
+
 export type UpdateProspectInput = {
   status?: ProspectStatus
   nextAction?: string
@@ -41,6 +51,7 @@ export type MarkContentUsedInput = {
 export type SheetGateway = {
   getSnapshot: () => Promise<CrmSnapshot>
   getRawValues: () => Promise<SheetValuesByEntity>
+  getRawSheet: (key: RawSheetKey) => Promise<RawSheetPayload>
   updateProspect: (
     prospectId: string,
     input: UpdateProspectInput,

@@ -57,4 +57,39 @@ describe('createGoogleSheetsGateway', () => {
 
     expect(snapshot.prospects.length).toBeGreaterThan(0)
   })
+
+  it('loads a raw Sheet tab through the Sheets proxy', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          key: 'feedback',
+          tabName: 'Feedback',
+          values: [
+            ['Nom', 'Score'],
+            ['Beta tester', '5'],
+          ],
+        }),
+        {
+          status: 200,
+        },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const gateway = createGoogleSheetsGateway({
+      proxyBaseUrl: 'http://127.0.0.1:8787/api/crm/',
+      spreadsheetId: 'sheet-123',
+      allowMockFallback: false,
+      debug: false,
+    })
+
+    const rawSheet = await gateway.getRawSheet('feedback')
+
+    expect(rawSheet.tabName).toBe('Feedback')
+    expect(rawSheet.values[1]?.[0]).toBe('Beta tester')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8787/api/crm/raw-sheets/feedback?spreadsheetId=sheet-123',
+      expect.any(Object),
+    )
+  })
 })

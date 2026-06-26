@@ -3,9 +3,12 @@ import { NavLink, Outlet } from 'react-router-dom'
 import BarChartIcon from 'lucide-react/dist/esm/icons/bar-chart-3.mjs'
 import BellIcon from 'lucide-react/dist/esm/icons/bell-check.mjs'
 import ClipboardListIcon from 'lucide-react/dist/esm/icons/clipboard-list.mjs'
+import FileQuestionIcon from 'lucide-react/dist/esm/icons/file-question.mjs'
 import LayoutDashboardIcon from 'lucide-react/dist/esm/icons/layout-dashboard.mjs'
 import LightbulbIcon from 'lucide-react/dist/esm/icons/lightbulb.mjs'
+import ListChecksIcon from 'lucide-react/dist/esm/icons/list-checks.mjs'
 import LogOutIcon from 'lucide-react/dist/esm/icons/log-out.mjs'
+import MessageSquareQuoteIcon from 'lucide-react/dist/esm/icons/message-square-quote.mjs'
 import ShieldCheckIcon from 'lucide-react/dist/esm/icons/shield-check.mjs'
 import TargetIcon from 'lucide-react/dist/esm/icons/target.mjs'
 import UsersIcon from 'lucide-react/dist/esm/icons/users-round.mjs'
@@ -20,6 +23,9 @@ const navItems = [
   { to: '/outbound', label: 'Outbound', icon: TargetIcon },
   { to: '/insights', label: 'Insights', icon: LightbulbIcon },
   { to: '/bilans', label: 'Bilans', icon: ClipboardListIcon },
+  { to: '/questionnaire', label: 'Questionnaire', icon: FileQuestionIcon },
+  { to: '/waitlist', label: 'Waitlist', icon: ListChecksIcon },
+  { to: '/feedback', label: 'Feedback', icon: MessageSquareQuoteIcon },
   { to: '/quality', label: 'Qualite CRM', icon: ShieldCheckIcon },
 ]
 
