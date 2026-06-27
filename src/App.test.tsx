@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { vi } from 'vitest'
 
 import App from './App'
 
@@ -13,6 +14,7 @@ describe('App shell', () => {
     expect(screen.getByRole('link', { name: /Questionnaire/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Waitlist/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Feedback/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Testeurs beta/i })).toBeInTheDocument()
     expect(
       await screen.findByRole('heading', { name: /Actions du jour/i }),
     ).toBeInTheDocument()
@@ -127,6 +129,25 @@ describe('App shell', () => {
       await screen.findByRole('heading', { name: heading }),
     ).toBeInTheDocument()
     expect(await screen.findByText(expectedValue)).toBeInTheDocument()
+  })
+
+  it('renders the beta testers route', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ testers: [] }), {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        status: 200,
+      }),
+    )
+
+    window.history.pushState({}, '', '/beta-testers')
+    render(<App />)
+
+    expect(
+      await screen.findByRole('heading', { name: /Testeurs beta/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Generer le code/i })).toBeInTheDocument()
   })
 
   it('renders CRM quality control route', async () => {

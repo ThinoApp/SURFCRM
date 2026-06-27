@@ -66,6 +66,8 @@ Modifier `.env`:
 - `CRM_AUTH_USERNAME`
 - `CRM_AUTH_PASSWORD_HASH`
 - `CRM_SESSION_SECRET`
+- `MISSION_CONTROL_API_URL`
+- `MISSION_CONTROL_ADMIN_API_KEY`
 - eventuellement les noms d'onglets
 
 Important:
@@ -74,6 +76,7 @@ Important:
 - garder `VITE_GOOGLE_SHEETS_PROXY_URL=https://ton-domaine.com/api/crm`, par exemple `https://crm.surfsoftware.tech/api/crm`;
 - garder `VITE_CRM_AUTH_API_URL=https://ton-domaine.com/api/auth`;
 - garder `VITE_GOOGLE_SHEETS_SPREADSHEET_ID=` vide en production si le proxy porte deja l'ID.
+- garder `MISSION_CONTROL_ADMIN_API_KEY` uniquement dans `.env` cote VPS, jamais dans une variable `VITE_*`.
 
 Generer le hash du mot de passe et le secret de session:
 
@@ -199,6 +202,7 @@ curl -c /tmp/surf-crm.cookies \
   -d '{"username":"admin","password":"MOT_DE_PASSE"}' \
   http://127.0.0.1:8787/api/auth/login
 curl -b /tmp/surf-crm.cookies http://127.0.0.1:8787/api/crm/health
+curl -b /tmp/surf-crm.cookies http://127.0.0.1:8787/api/crm/mission-control/testers
 pm2 logs surf-crm-api
 ```
 
@@ -258,5 +262,6 @@ sudo systemctl reload nginx
 - Ne jamais committer `.env`.
 - Le service account doit avoir uniquement acces au Google Sheet du CRM.
 - Utiliser `CRM_AUTH_PASSWORD_HASH`, pas un mot de passe en clair.
+- Garder `MISSION_CONTROL_ADMIN_API_KEY` cote serveur uniquement; le front CRM doit passer par `/api/crm/mission-control/*`.
 - Garder `CRM_SESSION_SECRET` long et unique par environnement.
 - Activer HTTPS avant de garder `CRM_COOKIE_SECURE=true`.

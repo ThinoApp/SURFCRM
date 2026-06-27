@@ -81,6 +81,12 @@ const MAX_FAILED_LOGINS = parsePositiveNumber(
 );
 const LOGIN_WINDOW_MS =
   parsePositiveNumber(process.env.CRM_AUTH_WINDOW_SECONDS, 15 * 60) * 1000;
+const MISSION_CONTROL_API_URL = trimTrailingSlash(
+  process.env.MISSION_CONTROL_API_URL ||
+    "https://mission-control.surfsoftware.tech/api/v1",
+);
+const MISSION_CONTROL_ADMIN_API_KEY =
+  process.env.MISSION_CONTROL_ADMIN_API_KEY || "";
 
 const HEADER_ROW_NUMBER = Number(process.env.GOOGLE_SHEET_HEADER_ROW || 3);
 const READ_LAST_COLUMN = process.env.GOOGLE_SHEET_READ_LAST_COLUMN || "Z";
@@ -304,6 +310,10 @@ function parsePositiveNumber(value, defaultValue) {
   }
 
   return parsedValue;
+}
+
+function trimTrailingSlash(value) {
+  return String(value || "").replace(/\/+$/, "");
 }
 
 function validateAuthConfig() {
@@ -961,6 +971,113 @@ async function appendRow(spreadsheetId, entity, input) {
   return readValuesByEntity(spreadsheetId);
 }
 
+function requireMissionControlAdminConfig() {
+  if (!MISSION_CONTROL_ADMIN_API_KEY) {
+    const error = new Error("MISSION_CONTROL_ADMIN_API_KEY est requis.");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  return {
+    adminApiKey: MISSION_CONTROL_ADMIN_API_KEY,
+    apiUrl: MISSION_CONTROL_API_URL,
+  };
+}
+
+async function missionControlAdminFetch(path, init = {}) {
+  const { adminApiKey, apiUrl } = requireMissionControlAdminConfig();
+  const response = await fetch(`${apiUrl}${path}`, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Admin-Key": adminApiKey,
+      ...(init.headers ?? {}),
+    },
+  });
+  const payload = await response.json().catch(async () => ({
+    error: await response.text().catch(() => "Mission Control indisponible."),
+  }));
+
+  if (!response.ok) {
+    const error = new Error(
+      payload.message || payload.error || "Mission Control a refuse la requete.",
+    );
+    error.statusCode = response.status;
+    throw error;
+  }
+
+  return payload;
+}
+
+function normalizeOptionalIsoDate(value) {
+  const rawValue = String(value || "").trim();
+
+  if (!rawValue) {
+    return undefined;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    return new Date(`${rawValue}T23:59:59.000Z`).toISOString();
+  }
+
+  const date = new Date(rawValue);
+
+  if (Number.isNaN(date.getTime())) {
+    const error = new Error("Date d'expiration invalide.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return date.toISOString();
+}
+
+async function listMissionControlTesters() {
+  return missionControlAdminFetch("/admin/testers");
+}
+
+async function createMissionControlTester(input) {
+  return missionControlAdminFetch("/admin/testers", {
+    method: "POST",
+    body: JSON.stringify({
+      name: String(input.name || "").trim(),
+      email: String(input.email || "").trim(),
+      expiresAt: normalizeOptionalIsoDate(input.expiresAt),
+      notes: String(input.notes || "").trim() || undefined,
+    }),
+  });
+}
+
+async function issueMissionControlAccess(testerId, input) {
+  return missionControlAdminFetch(
+    `/admin/testers/${encodeURIComponent(testerId)}/accesses`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        label: String(input.label || "").trim() || "Generated from SURF CRM",
+      }),
+    },
+  );
+}
+
+async function updateMissionControlTesterStatus(testerId, input) {
+  const status = String(input.status || "").trim().toUpperCase();
+
+  if (!["ACTIVE", "REVOKED", "EXPIRED"].includes(status)) {
+    const error = new Error("Statut testeur invalide.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return missionControlAdminFetch(
+    `/admin/testers/${encodeURIComponent(testerId)}/status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    },
+  );
+}
+
 function readBody(request) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -1003,7 +1120,13 @@ function sendJson(response, statusCode, payload) {
 
 function sendError(response, error) {
   const message = error instanceof Error ? error.message : String(error);
-  sendJson(response, 500, {
+  const statusCode = Number(error?.statusCode || error?.status || 500);
+  const safeStatusCode =
+    Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599
+      ? statusCode
+      : 500;
+
+  sendJson(response, safeStatusCode, {
     error: message,
   });
 }
@@ -1064,6 +1187,16 @@ async function handleRequest(request, response) {
       return;
     }
 
+    if (
+      request.method === "GET" &&
+      url.pathname === "/api/crm/mission-control/testers"
+    ) {
+      sendJson(response, 200, {
+        testers: await listMissionControlTesters(),
+      });
+      return;
+    }
+
     if (request.method === "GET" && url.pathname === "/api/crm/snapshot") {
       const spreadsheetId = requireSpreadsheetId(url);
       const valuesByEntity = await readValuesByEntity(spreadsheetId);
@@ -1090,6 +1223,21 @@ async function handleRequest(request, response) {
     }
 
     if (request.method === "PATCH") {
+      const testerStatusMatch = url.pathname.match(
+        /^\/api\/crm\/mission-control\/testers\/([^/]+)\/status$/,
+      );
+
+      if (testerStatusMatch?.[1]) {
+        const body = await readBody(request);
+        const payload = await updateMissionControlTesterStatus(
+          decodeURIComponent(testerStatusMatch[1]),
+          body.input ?? body,
+        );
+
+        sendJson(response, 200, payload);
+        return;
+      }
+
       const route = matchPatchRoute(url.pathname);
 
       if (route) {
@@ -1111,6 +1259,29 @@ async function handleRequest(request, response) {
     }
 
     if (request.method === "POST") {
+      if (url.pathname === "/api/crm/mission-control/testers") {
+        const body = await readBody(request);
+        const payload = await createMissionControlTester(body.input ?? body);
+
+        sendJson(response, 201, payload);
+        return;
+      }
+
+      const testerAccessMatch = url.pathname.match(
+        /^\/api\/crm\/mission-control\/testers\/([^/]+)\/accesses$/,
+      );
+
+      if (testerAccessMatch?.[1]) {
+        const body = await readBody(request);
+        const payload = await issueMissionControlAccess(
+          decodeURIComponent(testerAccessMatch[1]),
+          body.input ?? body,
+        );
+
+        sendJson(response, 201, payload);
+        return;
+      }
+
       const route = matchPostRoute(url.pathname);
 
       if (route) {

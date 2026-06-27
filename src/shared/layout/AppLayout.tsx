@@ -4,6 +4,7 @@ import BarChartIcon from 'lucide-react/dist/esm/icons/bar-chart-3.mjs'
 import BellIcon from 'lucide-react/dist/esm/icons/bell-check.mjs'
 import ClipboardListIcon from 'lucide-react/dist/esm/icons/clipboard-list.mjs'
 import FileQuestionIcon from 'lucide-react/dist/esm/icons/file-question.mjs'
+import KeyRoundIcon from 'lucide-react/dist/esm/icons/key-round.mjs'
 import LayoutDashboardIcon from 'lucide-react/dist/esm/icons/layout-dashboard.mjs'
 import LightbulbIcon from 'lucide-react/dist/esm/icons/lightbulb.mjs'
 import ListChecksIcon from 'lucide-react/dist/esm/icons/list-checks.mjs'
@@ -26,6 +27,7 @@ const navItems = [
   { to: '/questionnaire', label: 'Questionnaire', icon: FileQuestionIcon },
   { to: '/waitlist', label: 'Waitlist', icon: ListChecksIcon },
   { to: '/feedback', label: 'Feedback', icon: MessageSquareQuoteIcon },
+  { to: '/beta-testers', label: 'Testeurs beta', icon: KeyRoundIcon },
   { to: '/quality', label: 'Qualite CRM', icon: ShieldCheckIcon },
 ]
 

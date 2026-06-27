@@ -105,6 +105,14 @@ export function createAppRouter() {
           ),
         },
         {
+          path: 'beta-testers',
+          element: lazyElement(() =>
+            import('../features/betaTesters/BetaTestersPage').then((module) => ({
+              default: module.BetaTestersPage,
+            })),
+          ),
+        },
+        {
           path: 'quality',
           element: lazyElement(() =>
             import('../features/quality/QualityPage').then((module) => ({
