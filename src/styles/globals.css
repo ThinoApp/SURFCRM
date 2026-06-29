@@ -305,6 +305,59 @@ a {
   font-size: 0.82rem;
 }
 
+.beta-quota-create-fields,
+.beta-quota-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--surf-space-3);
+}
+
+.beta-quota-editor {
+  display: grid;
+  min-width: 220px;
+  gap: var(--surf-space-2);
+}
+
+.beta-quota-usage {
+  display: grid;
+  gap: 2px;
+}
+
+.beta-quota-usage strong {
+  color: var(--surf-ink);
+  font-size: 0.82rem;
+}
+
+.beta-quota-usage span,
+.beta-quota-inputs label {
+  color: var(--surf-ink-soft);
+  font-size: 0.75rem;
+}
+
+.beta-quota-inputs {
+  grid-template-columns: 62px 76px auto;
+  align-items: end;
+  gap: var(--surf-space-2);
+}
+
+.beta-quota-inputs label {
+  display: grid;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.beta-quota-inputs input {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 6px;
+}
+
+.beta-quota-inputs .button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
 .beta-error {
   margin: 0;
   padding: 10px 12px;

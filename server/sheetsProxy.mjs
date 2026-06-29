@@ -1044,6 +1044,8 @@ async function createMissionControlTester(input) {
       email: String(input.email || "").trim(),
       expiresAt: normalizeOptionalIsoDate(input.expiresAt),
       notes: String(input.notes || "").trim() || undefined,
+      aiDailyLimit: Number(input.aiDailyLimit ?? 3),
+      aiWeeklyLimit: Number(input.aiWeeklyLimit ?? 10),
     }),
   });
 }
@@ -1074,6 +1076,32 @@ async function updateMissionControlTesterStatus(testerId, input) {
     {
       method: "PATCH",
       body: JSON.stringify({ status }),
+    },
+  );
+}
+
+async function updateMissionControlTesterAiQuota(testerId, input) {
+  const aiDailyLimit = Number(input.aiDailyLimit);
+  const aiWeeklyLimit = Number(input.aiWeeklyLimit);
+
+  if (
+    !Number.isInteger(aiDailyLimit) ||
+    aiDailyLimit < 0 ||
+    aiDailyLimit > 20 ||
+    !Number.isInteger(aiWeeklyLimit) ||
+    aiWeeklyLimit < 0 ||
+    aiWeeklyLimit > 100
+  ) {
+    const error = new Error("Limites IA invalides.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return missionControlAdminFetch(
+    `/admin/testers/${encodeURIComponent(testerId)}/ai-quota`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ aiDailyLimit, aiWeeklyLimit }),
     },
   );
 }
@@ -1223,6 +1251,21 @@ async function handleRequest(request, response) {
     }
 
     if (request.method === "PATCH") {
+      const testerAiQuotaMatch = url.pathname.match(
+        /^\/api\/crm\/mission-control\/testers\/([^/]+)\/ai-quota$/,
+      );
+
+      if (testerAiQuotaMatch?.[1]) {
+        const body = await readBody(request);
+        const payload = await updateMissionControlTesterAiQuota(
+          decodeURIComponent(testerAiQuotaMatch[1]),
+          body.input ?? body,
+        );
+
+        sendJson(response, 200, payload);
+        return;
+      }
+
       const testerStatusMatch = url.pathname.match(
         /^\/api\/crm\/mission-control\/testers\/([^/]+)\/status$/,
       );

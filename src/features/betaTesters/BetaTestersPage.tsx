@@ -8,6 +8,7 @@ import {
   createMissionControlTester,
   issueMissionControlAccess,
   listMissionControlTesters,
+  updateMissionControlTesterAiQuota,
   updateMissionControlTesterStatus,
 } from '../../data/missionControl/missionControlAdminClient'
 import type {
@@ -32,6 +33,8 @@ type FormState = {
   email: string
   expiresAt: string
   notes: string
+  aiDailyLimit: string
+  aiWeeklyLimit: string
 }
 
 const initialFormState: FormState = {
@@ -39,6 +42,8 @@ const initialFormState: FormState = {
   email: '',
   expiresAt: '',
   notes: '',
+  aiDailyLimit: '3',
+  aiWeeklyLimit: '10',
 }
 
 const statusLabels: Record<MissionControlTesterStatus, string> = {
@@ -99,6 +104,80 @@ function StatusBadge({ status }: { status: MissionControlTesterStatus }) {
   )
 }
 
+function AiQuotaEditor({
+  tester,
+  disabled,
+  onSave,
+}: {
+  tester: MissionControlTester
+  disabled: boolean
+  onSave: (aiDailyLimit: number, aiWeeklyLimit: number) => void
+}) {
+  const configuredDailyLimit = tester.aiDailyLimit ?? tester.aiQuota?.daily.limit ?? 3
+  const configuredWeeklyLimit =
+    tester.aiWeeklyLimit ?? tester.aiQuota?.weekly.limit ?? 10
+  const dailyUsage = tester.aiQuota?.daily.used ?? 0
+  const weeklyUsage = tester.aiQuota?.weekly.used ?? 0
+  const [dailyLimit, setDailyLimit] = useState(String(configuredDailyLimit))
+  const [weeklyLimit, setWeeklyLimit] = useState(String(configuredWeeklyLimit))
+
+  const daily = Number(dailyLimit)
+  const weekly = Number(weeklyLimit)
+  const isInvalid =
+    !Number.isInteger(daily) ||
+    daily < 0 ||
+    daily > 20 ||
+    !Number.isInteger(weekly) ||
+    weekly < 0 ||
+    weekly > 100 ||
+    (weekly > 0 && daily > weekly)
+
+  return (
+    <div className="beta-quota-editor">
+      <div className="beta-quota-usage">
+        <strong>
+          {weeklyUsage}/{configuredWeeklyLimit} cette semaine
+        </strong>
+        <span>
+          {dailyUsage}/{configuredDailyLimit} aujourd'hui
+        </span>
+      </div>
+      <div className="beta-quota-inputs">
+        <label>
+          Jour
+          <input
+            aria-label={`Limite IA quotidienne de ${tester.name}`}
+            max={20}
+            min={0}
+            onChange={(event) => setDailyLimit(event.target.value)}
+            type="number"
+            value={dailyLimit}
+          />
+        </label>
+        <label>
+          Semaine
+          <input
+            aria-label={`Limite IA hebdomadaire de ${tester.name}`}
+            max={100}
+            min={0}
+            onChange={(event) => setWeeklyLimit(event.target.value)}
+            type="number"
+            value={weeklyLimit}
+          />
+        </label>
+        <button
+          className="button button--secondary"
+          disabled={disabled || isInvalid}
+          onClick={() => onSave(daily, weekly)}
+          type="button"
+        >
+          Appliquer
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function BetaTestersPage() {
   const queryClient = useQueryClient()
   const config = getCrmRuntimeConfig()
@@ -119,6 +198,8 @@ export function BetaTestersPage() {
         email: formState.email,
         expiresAt: formState.expiresAt || undefined,
         notes: formState.notes || undefined,
+        aiDailyLimit: Number(formState.aiDailyLimit),
+        aiWeeklyLimit: Number(formState.aiWeeklyLimit),
       }),
     onSuccess: (tester) => {
       setGeneratedCode(makeGeneratedCodeFromTester(tester))
@@ -155,6 +236,27 @@ export function BetaTestersPage() {
       testerId: string
       status: MissionControlTesterStatus
     }) => updateMissionControlTesterStatus(proxyBaseUrl, testerId, status),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['mission-control-testers', proxyBaseUrl],
+      })
+    },
+  })
+
+  const updateQuotaMutation = useMutation({
+    mutationFn: ({
+      testerId,
+      aiDailyLimit,
+      aiWeeklyLimit,
+    }: {
+      testerId: string
+      aiDailyLimit: number
+      aiWeeklyLimit: number
+    }) =>
+      updateMissionControlTesterAiQuota(proxyBaseUrl, testerId, {
+        aiDailyLimit,
+        aiWeeklyLimit,
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ['mission-control-testers', proxyBaseUrl],
@@ -226,6 +328,25 @@ export function BetaTestersPage() {
         },
       },
       {
+        id: 'aiQuota',
+        header: 'Quota IA',
+        enableColumnFilter: false,
+        cell: ({ row }) => (
+          <AiQuotaEditor
+            key={`${row.original.id}-${row.original.aiDailyLimit}-${row.original.aiWeeklyLimit}`}
+            tester={row.original}
+            disabled={updateQuotaMutation.isPending}
+            onSave={(aiDailyLimit, aiWeeklyLimit) =>
+              updateQuotaMutation.mutate({
+                testerId: row.original.id,
+                aiDailyLimit,
+                aiWeeklyLimit,
+              })
+            }
+          />
+        ),
+      },
+      {
         id: 'actions',
         header: 'Actions',
         enableColumnFilter: false,
@@ -265,7 +386,7 @@ export function BetaTestersPage() {
         },
       },
     ],
-    [issueAccessMutation, updateStatusMutation],
+    [issueAccessMutation, updateQuotaMutation, updateStatusMutation],
   )
 
   function updateField(field: keyof FormState, value: string) {
@@ -296,6 +417,7 @@ export function BetaTestersPage() {
     testersQuery.error ??
     createTesterMutation.error ??
     issueAccessMutation.error ??
+    updateQuotaMutation.error ??
     updateStatusMutation.error
 
   return (
@@ -366,6 +488,31 @@ export function BetaTestersPage() {
               type="date"
             />
           </label>
+
+          <div className="beta-quota-create-fields">
+            <label className="form-field">
+              Ameliorations IA / jour
+              <input
+                max={20}
+                min={0}
+                required
+                value={formState.aiDailyLimit}
+                onChange={(event) => updateField('aiDailyLimit', event.target.value)}
+                type="number"
+              />
+            </label>
+            <label className="form-field">
+              Ameliorations IA / semaine
+              <input
+                max={100}
+                min={0}
+                required
+                value={formState.aiWeeklyLimit}
+                onChange={(event) => updateField('aiWeeklyLimit', event.target.value)}
+                type="number"
+              />
+            </label>
+          </div>
 
           <label className="form-field">
             Notes

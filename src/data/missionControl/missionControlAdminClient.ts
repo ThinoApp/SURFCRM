@@ -11,6 +11,27 @@ export type MissionControlAccess = {
   createdAt: string
 }
 
+export type MissionControlAiQuota = {
+  daily: {
+    used: number
+    limit: number
+    remaining: number
+    resetsAt: string
+  }
+  weekly: {
+    used: number
+    limit: number
+    remaining: number
+    resetsAt: string
+  }
+  globalDaily: {
+    used: number
+    limit: number
+    remaining: number
+    resetsAt: string
+  }
+}
+
 export type MissionControlTester = {
   id: string
   email: string
@@ -18,6 +39,9 @@ export type MissionControlTester = {
   status: MissionControlTesterStatus
   expiresAt: string | null
   notes: string | null
+  aiDailyLimit?: number
+  aiWeeklyLimit?: number
+  aiQuota?: MissionControlAiQuota
   createdAt: string
   updatedAt: string
   accesses: MissionControlAccess[]
@@ -28,6 +52,8 @@ export type CreateMissionControlTesterInput = {
   email: string
   expiresAt?: string
   notes?: string
+  aiDailyLimit?: number
+  aiWeeklyLimit?: number
 }
 
 export type CreatedMissionControlTester = MissionControlTester & {
@@ -128,6 +154,26 @@ export function updateMissionControlTesterStatus(
     {
       method: 'PATCH',
       body: JSON.stringify({ input: { status } }),
+    },
+  )
+}
+
+export function updateMissionControlTesterAiQuota(
+  baseUrl: string,
+  testerId: string,
+  input: { aiDailyLimit: number; aiWeeklyLimit: number },
+) {
+  return requestMissionControlAdmin<{
+    id: string
+    aiDailyLimit: number
+    aiWeeklyLimit: number
+    aiQuota: MissionControlAiQuota
+  }>(
+    baseUrl,
+    `/mission-control/testers/${encodeURIComponent(testerId)}/ai-quota`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ input }),
     },
   )
 }
