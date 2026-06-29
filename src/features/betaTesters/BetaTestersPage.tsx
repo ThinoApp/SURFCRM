@@ -1,7 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { CSSProperties, FormEvent } from 'react'
 
 import { getCrmRuntimeConfig } from '../../app/crmConfig'
 import {
@@ -13,6 +13,8 @@ import {
 } from '../../data/missionControl/missionControlAdminClient'
 import type {
   CreatedMissionControlTester,
+  MissionControlAiQuotaLimits,
+  MissionControlQuotaBucket,
   IssuedMissionControlAccess,
   MissionControlTester,
   MissionControlTesterStatus,
@@ -35,6 +37,10 @@ type FormState = {
   notes: string
   aiDailyLimit: string
   aiWeeklyLimit: string
+  aiActionDailyLimit: string
+  aiActionWeeklyLimit: string
+  aiSummaryDailyLimit: string
+  aiSummaryWeeklyLimit: string
 }
 
 const initialFormState: FormState = {
@@ -44,6 +50,10 @@ const initialFormState: FormState = {
   notes: '',
   aiDailyLimit: '3',
   aiWeeklyLimit: '10',
+  aiActionDailyLimit: '10',
+  aiActionWeeklyLimit: '40',
+  aiSummaryDailyLimit: '2',
+  aiSummaryWeeklyLimit: '10',
 }
 
 const statusLabels: Record<MissionControlTesterStatus, string> = {
@@ -86,6 +96,70 @@ function countPostsScored(testers: MissionControlTester[]) {
   )
 }
 
+function getQuotaBucket(
+  tester: MissionControlTester,
+  key: 'missionEnhancement' | 'signalAction' | 'reportSynthesis',
+): MissionControlQuotaBucket {
+  const fallbackDailyLimit =
+    key === 'signalAction'
+      ? tester.aiActionDailyLimit ?? 10
+      : key === 'reportSynthesis'
+        ? tester.aiSummaryDailyLimit ?? 2
+        : tester.aiDailyLimit ?? 3
+  const fallbackWeeklyLimit =
+    key === 'signalAction'
+      ? tester.aiActionWeeklyLimit ?? 40
+      : key === 'reportSynthesis'
+        ? tester.aiSummaryWeeklyLimit ?? 10
+        : tester.aiWeeklyLimit ?? 10
+
+  const quota = tester.aiQuota
+  const bucket =
+    key === 'missionEnhancement'
+      ? quota?.missionEnhancement ?? quota
+      : key === 'signalAction'
+        ? quota?.signalAction
+        : quota?.reportSynthesis
+
+  return {
+    daily: bucket?.daily ?? {
+      used: 0,
+      limit: fallbackDailyLimit,
+      remaining: fallbackDailyLimit,
+      resetsAt: '',
+    },
+    weekly: bucket?.weekly ?? {
+      used: 0,
+      limit: fallbackWeeklyLimit,
+      remaining: fallbackWeeklyLimit,
+      resetsAt: '',
+    },
+  }
+}
+
+function countAiUnits(
+  testers: MissionControlTester[],
+  key: 'missionEnhancement' | 'signalAction' | 'reportSynthesis',
+) {
+  return testers.reduce(
+    (total, tester) => total + getQuotaBucket(tester, key).weekly.used,
+    0,
+  )
+}
+
+function getQuotaProgress(period: { used: number; limit: number }) {
+  if (period.limit <= 0) {
+    return period.used > 0 ? 100 : 0
+  }
+
+  return Math.max(0, Math.min(100, Math.round((period.used / period.limit) * 100)))
+}
+
+function clampQuotaInput(value: string, fallback: number) {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) ? parsed : fallback
+}
+
 function makeGeneratedCodeFromTester(tester: CreatedMissionControlTester): GeneratedCode {
   return {
     testerId: tester.id,
@@ -111,69 +185,281 @@ function AiQuotaEditor({
 }: {
   tester: MissionControlTester
   disabled: boolean
-  onSave: (aiDailyLimit: number, aiWeeklyLimit: number) => void
+  onSave: (limits: Required<MissionControlAiQuotaLimits>) => void
 }) {
-  const configuredDailyLimit = tester.aiDailyLimit ?? tester.aiQuota?.daily.limit ?? 3
-  const configuredWeeklyLimit =
-    tester.aiWeeklyLimit ?? tester.aiQuota?.weekly.limit ?? 10
-  const dailyUsage = tester.aiQuota?.daily.used ?? 0
-  const weeklyUsage = tester.aiQuota?.weekly.used ?? 0
-  const [dailyLimit, setDailyLimit] = useState(String(configuredDailyLimit))
-  const [weeklyLimit, setWeeklyLimit] = useState(String(configuredWeeklyLimit))
+  const missionQuota = getQuotaBucket(tester, 'missionEnhancement')
+  const actionQuota = getQuotaBucket(tester, 'signalAction')
+  const summaryQuota = getQuotaBucket(tester, 'reportSynthesis')
+  const [limits, setLimits] = useState<Required<MissionControlAiQuotaLimits>>({
+    aiDailyLimit: tester.aiDailyLimit ?? missionQuota.daily.limit,
+    aiWeeklyLimit: tester.aiWeeklyLimit ?? missionQuota.weekly.limit,
+    aiActionDailyLimit: tester.aiActionDailyLimit ?? actionQuota.daily.limit,
+    aiActionWeeklyLimit: tester.aiActionWeeklyLimit ?? actionQuota.weekly.limit,
+    aiSummaryDailyLimit: tester.aiSummaryDailyLimit ?? summaryQuota.daily.limit,
+    aiSummaryWeeklyLimit: tester.aiSummaryWeeklyLimit ?? summaryQuota.weekly.limit,
+  })
 
-  const daily = Number(dailyLimit)
-  const weekly = Number(weeklyLimit)
   const isInvalid =
-    !Number.isInteger(daily) ||
-    daily < 0 ||
-    daily > 20 ||
-    !Number.isInteger(weekly) ||
-    weekly < 0 ||
-    weekly > 100 ||
-    (weekly > 0 && daily > weekly)
+    limits.aiDailyLimit < 0 ||
+    limits.aiDailyLimit > 20 ||
+    limits.aiWeeklyLimit < 0 ||
+    limits.aiWeeklyLimit > 100 ||
+    (limits.aiWeeklyLimit > 0 && limits.aiDailyLimit > limits.aiWeeklyLimit) ||
+    limits.aiActionDailyLimit < 0 ||
+    limits.aiActionDailyLimit > 100 ||
+    limits.aiActionWeeklyLimit < 0 ||
+    limits.aiActionWeeklyLimit > 500 ||
+    (limits.aiActionWeeklyLimit > 0 &&
+      limits.aiActionDailyLimit > limits.aiActionWeeklyLimit) ||
+    limits.aiSummaryDailyLimit < 0 ||
+    limits.aiSummaryDailyLimit > 20 ||
+    limits.aiSummaryWeeklyLimit < 0 ||
+    limits.aiSummaryWeeklyLimit > 100 ||
+    (limits.aiSummaryWeeklyLimit > 0 &&
+      limits.aiSummaryDailyLimit > limits.aiSummaryWeeklyLimit)
+
+  function updateLimit(field: keyof MissionControlAiQuotaLimits, value: string) {
+    setLimits((current) => ({
+      ...current,
+      [field]: clampQuotaInput(value, current[field] ?? 0),
+    }))
+  }
+
+  function applyPreset(preset: Required<MissionControlAiQuotaLimits>) {
+    setLimits(preset)
+    onSave(preset)
+  }
 
   return (
     <div className="beta-quota-editor">
-      <div className="beta-quota-usage">
-        <strong>
-          {weeklyUsage}/{configuredWeeklyLimit} cette semaine
-        </strong>
-        <span>
-          {dailyUsage}/{configuredDailyLimit} aujourd'hui
-        </span>
+      <QuotaUsageRow
+        label="Mission"
+        quota={missionQuota}
+        dailyLimit={limits.aiDailyLimit}
+        weeklyLimit={limits.aiWeeklyLimit}
+      />
+      <QuotaUsageRow
+        label="Actions"
+        quota={actionQuota}
+        dailyLimit={limits.aiActionDailyLimit}
+        weeklyLimit={limits.aiActionWeeklyLimit}
+      />
+      <QuotaUsageRow
+        label="Synthese"
+        quota={summaryQuota}
+        dailyLimit={limits.aiSummaryDailyLimit}
+        weeklyLimit={limits.aiSummaryWeeklyLimit}
+      />
+
+      <div className="beta-quota-limit-grid">
+        <QuotaLimitInputs
+          dailyLabel="Mission/J"
+          dailyMax={20}
+          dailyValue={limits.aiDailyLimit}
+          weeklyLabel="Mission/S"
+          weeklyMax={100}
+          weeklyValue={limits.aiWeeklyLimit}
+          testerName={tester.name}
+          onDailyChange={(value) => updateLimit('aiDailyLimit', value)}
+          onWeeklyChange={(value) => updateLimit('aiWeeklyLimit', value)}
+        />
+        <QuotaLimitInputs
+          dailyLabel="Actions/J"
+          dailyMax={100}
+          dailyValue={limits.aiActionDailyLimit}
+          weeklyLabel="Actions/S"
+          weeklyMax={500}
+          weeklyValue={limits.aiActionWeeklyLimit}
+          testerName={tester.name}
+          onDailyChange={(value) => updateLimit('aiActionDailyLimit', value)}
+          onWeeklyChange={(value) => updateLimit('aiActionWeeklyLimit', value)}
+        />
+        <QuotaLimitInputs
+          dailyLabel="Synth./J"
+          dailyMax={20}
+          dailyValue={limits.aiSummaryDailyLimit}
+          weeklyLabel="Synth./S"
+          weeklyMax={100}
+          weeklyValue={limits.aiSummaryWeeklyLimit}
+          testerName={tester.name}
+          onDailyChange={(value) => updateLimit('aiSummaryDailyLimit', value)}
+          onWeeklyChange={(value) => updateLimit('aiSummaryWeeklyLimit', value)}
+        />
       </div>
-      <div className="beta-quota-inputs">
-        <label>
-          Jour
-          <input
-            aria-label={`Limite IA quotidienne de ${tester.name}`}
-            max={20}
-            min={0}
-            onChange={(event) => setDailyLimit(event.target.value)}
-            type="number"
-            value={dailyLimit}
-          />
-        </label>
-        <label>
-          Semaine
-          <input
-            aria-label={`Limite IA hebdomadaire de ${tester.name}`}
-            max={100}
-            min={0}
-            onChange={(event) => setWeeklyLimit(event.target.value)}
-            type="number"
-            value={weeklyLimit}
-          />
-        </label>
+
+      <div className="beta-quota-presets">
+        <button
+          className="button button--secondary"
+          disabled={disabled}
+          onClick={() =>
+            applyPreset({
+              aiDailyLimit: 3,
+              aiWeeklyLimit: 10,
+              aiActionDailyLimit: 10,
+              aiActionWeeklyLimit: 40,
+              aiSummaryDailyLimit: 2,
+              aiSummaryWeeklyLimit: 10,
+            })
+          }
+          type="button"
+        >
+          Standard
+        </button>
+        <button
+          className="button button--secondary"
+          disabled={disabled}
+          onClick={() =>
+            applyPreset({
+              aiDailyLimit: 5,
+              aiWeeklyLimit: 20,
+              aiActionDailyLimit: 25,
+              aiActionWeeklyLimit: 100,
+              aiSummaryDailyLimit: 4,
+              aiSummaryWeeklyLimit: 20,
+            })
+          }
+          type="button"
+        >
+          Power
+        </button>
+        <button
+          className="button button--secondary"
+          disabled={disabled}
+          onClick={() =>
+            applyPreset({
+              aiDailyLimit: 0,
+              aiWeeklyLimit: 0,
+              aiActionDailyLimit: 0,
+              aiActionWeeklyLimit: 0,
+              aiSummaryDailyLimit: 0,
+              aiSummaryWeeklyLimit: 0,
+            })
+          }
+          type="button"
+        >
+          Pause IA
+        </button>
+      </div>
+
+      <div className="beta-quota-save">
         <button
           className="button button--secondary"
           disabled={disabled || isInvalid}
-          onClick={() => onSave(daily, weekly)}
+          onClick={() => onSave(limits)}
           type="button"
         >
           Appliquer
         </button>
       </div>
+    </div>
+  )
+}
+
+function QuotaUsageRow({
+  label,
+  quota,
+  dailyLimit,
+  weeklyLimit,
+}: {
+  label: string
+  quota: MissionControlQuotaBucket
+  dailyLimit: number
+  weeklyLimit: number
+}) {
+  const daily = {
+    ...quota.daily,
+    limit: dailyLimit,
+  }
+  const weekly = {
+    ...quota.weekly,
+    limit: weeklyLimit,
+  }
+
+  return (
+    <div className="beta-quota-row">
+      <div className="beta-quota-row-head">
+        <strong>{label}</strong>
+        <span>
+          {weekly.used}/{weekly.limit} semaine
+        </span>
+      </div>
+      <div className="beta-quota-bars" aria-label={`Consommation IA ${label}`}>
+        <span
+          className="beta-quota-bar"
+          style={
+            {
+              '--quota-progress': `${getQuotaProgress(daily)}%`,
+            } as CSSProperties
+          }
+        >
+          <em>Jour</em>
+          <b>
+            {daily.used}/{daily.limit}
+          </b>
+        </span>
+        <span
+          className="beta-quota-bar"
+          style={
+            {
+              '--quota-progress': `${getQuotaProgress(weekly)}%`,
+            } as CSSProperties
+          }
+        >
+          <em>Semaine</em>
+          <b>
+            {weekly.used}/{weekly.limit}
+          </b>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function QuotaLimitInputs({
+  dailyLabel,
+  dailyMax,
+  dailyValue,
+  weeklyLabel,
+  weeklyMax,
+  weeklyValue,
+  testerName,
+  onDailyChange,
+  onWeeklyChange,
+}: {
+  dailyLabel: string
+  dailyMax: number
+  dailyValue: number
+  weeklyLabel: string
+  weeklyMax: number
+  weeklyValue: number
+  testerName: string
+  onDailyChange: (value: string) => void
+  onWeeklyChange: (value: string) => void
+}) {
+  return (
+    <div className="beta-quota-input-pair">
+      <label>
+        {dailyLabel}
+        <input
+          aria-label={`${dailyLabel} de ${testerName}`}
+          max={dailyMax}
+          min={0}
+          onChange={(event) => onDailyChange(event.target.value)}
+          type="number"
+          value={dailyValue}
+        />
+      </label>
+      <label>
+        {weeklyLabel}
+        <input
+          aria-label={`${weeklyLabel} de ${testerName}`}
+          max={weeklyMax}
+          min={0}
+          onChange={(event) => onWeeklyChange(event.target.value)}
+          type="number"
+          value={weeklyValue}
+        />
+      </label>
     </div>
   )
 }
@@ -200,6 +486,10 @@ export function BetaTestersPage() {
         notes: formState.notes || undefined,
         aiDailyLimit: Number(formState.aiDailyLimit),
         aiWeeklyLimit: Number(formState.aiWeeklyLimit),
+        aiActionDailyLimit: Number(formState.aiActionDailyLimit),
+        aiActionWeeklyLimit: Number(formState.aiActionWeeklyLimit),
+        aiSummaryDailyLimit: Number(formState.aiSummaryDailyLimit),
+        aiSummaryWeeklyLimit: Number(formState.aiSummaryWeeklyLimit),
       }),
     onSuccess: (tester) => {
       setGeneratedCode(makeGeneratedCodeFromTester(tester))
@@ -246,17 +536,12 @@ export function BetaTestersPage() {
   const updateQuotaMutation = useMutation({
     mutationFn: ({
       testerId,
-      aiDailyLimit,
-      aiWeeklyLimit,
+      limits,
     }: {
       testerId: string
-      aiDailyLimit: number
-      aiWeeklyLimit: number
+      limits: Required<MissionControlAiQuotaLimits>
     }) =>
-      updateMissionControlTesterAiQuota(proxyBaseUrl, testerId, {
-        aiDailyLimit,
-        aiWeeklyLimit,
-      }),
+      updateMissionControlTesterAiQuota(proxyBaseUrl, testerId, limits),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ['mission-control-testers', proxyBaseUrl],
@@ -268,6 +553,9 @@ export function BetaTestersPage() {
   const activeTesters = testers.filter((tester) => tester.status === 'ACTIVE').length
   const activatedTesters = countActivatedTesters(testers)
   const postsScored = countPostsScored(testers)
+  const missionAiUnits = countAiUnits(testers, 'missionEnhancement')
+  const actionAiUnits = countAiUnits(testers, 'signalAction')
+  const summaryAiUnits = countAiUnits(testers, 'reportSynthesis')
 
   const columns = useMemo<ColumnDef<MissionControlTester>[]>(
     () => [
@@ -333,14 +621,21 @@ export function BetaTestersPage() {
         enableColumnFilter: false,
         cell: ({ row }) => (
           <AiQuotaEditor
-            key={`${row.original.id}-${row.original.aiDailyLimit}-${row.original.aiWeeklyLimit}`}
+            key={[
+              row.original.id,
+              row.original.aiDailyLimit,
+              row.original.aiWeeklyLimit,
+              row.original.aiActionDailyLimit,
+              row.original.aiActionWeeklyLimit,
+              row.original.aiSummaryDailyLimit,
+              row.original.aiSummaryWeeklyLimit,
+            ].join('-')}
             tester={row.original}
             disabled={updateQuotaMutation.isPending}
-            onSave={(aiDailyLimit, aiWeeklyLimit) =>
+            onSave={(limits) =>
               updateQuotaMutation.mutate({
                 testerId: row.original.id,
-                aiDailyLimit,
-                aiWeeklyLimit,
+                limits,
               })
             }
           />
@@ -445,6 +740,18 @@ export function BetaTestersPage() {
           <span>Posts scores</span>
           <strong>{postsScored}</strong>
         </article>
+        <article>
+          <span>IA mission/S</span>
+          <strong>{missionAiUnits}</strong>
+        </article>
+        <article>
+          <span>Actions IA/S</span>
+          <strong>{actionAiUnits}</strong>
+        </article>
+        <article>
+          <span>Synthese IA/S</span>
+          <strong>{summaryAiUnits}</strong>
+        </article>
       </section>
 
       <section className="beta-control-grid">
@@ -491,7 +798,7 @@ export function BetaTestersPage() {
 
           <div className="beta-quota-create-fields">
             <label className="form-field">
-              Ameliorations IA / jour
+              Mission IA / jour
               <input
                 max={20}
                 min={0}
@@ -502,13 +809,65 @@ export function BetaTestersPage() {
               />
             </label>
             <label className="form-field">
-              Ameliorations IA / semaine
+              Mission IA / semaine
               <input
                 max={100}
                 min={0}
                 required
                 value={formState.aiWeeklyLimit}
                 onChange={(event) => updateField('aiWeeklyLimit', event.target.value)}
+                type="number"
+              />
+            </label>
+            <label className="form-field">
+              Actions IA / jour
+              <input
+                max={100}
+                min={0}
+                required
+                value={formState.aiActionDailyLimit}
+                onChange={(event) =>
+                  updateField('aiActionDailyLimit', event.target.value)
+                }
+                type="number"
+              />
+            </label>
+            <label className="form-field">
+              Actions IA / semaine
+              <input
+                max={500}
+                min={0}
+                required
+                value={formState.aiActionWeeklyLimit}
+                onChange={(event) =>
+                  updateField('aiActionWeeklyLimit', event.target.value)
+                }
+                type="number"
+              />
+            </label>
+            <label className="form-field">
+              Synthese IA / jour
+              <input
+                max={20}
+                min={0}
+                required
+                value={formState.aiSummaryDailyLimit}
+                onChange={(event) =>
+                  updateField('aiSummaryDailyLimit', event.target.value)
+                }
+                type="number"
+              />
+            </label>
+            <label className="form-field">
+              Synthese IA / semaine
+              <input
+                max={100}
+                min={0}
+                required
+                value={formState.aiSummaryWeeklyLimit}
+                onChange={(event) =>
+                  updateField('aiSummaryWeeklyLimit', event.target.value)
+                }
                 type="number"
               />
             </label>

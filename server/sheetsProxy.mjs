@@ -1032,6 +1032,24 @@ function normalizeOptionalIsoDate(value) {
   return date.toISOString();
 }
 
+function assertIntegerInRange(value, min, max, label) {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    const error = new Error(`${label} invalide.`);
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+function assertDailyWeeklyPair(dailyLimit, weeklyLimit, label) {
+  if (weeklyLimit > 0 && dailyLimit > weeklyLimit) {
+    const error = new Error(
+      `${label}: la limite quotidienne ne peut pas depasser la limite hebdomadaire.`,
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
 async function listMissionControlTesters() {
   return missionControlAdminFetch("/admin/testers");
 }
@@ -1046,6 +1064,10 @@ async function createMissionControlTester(input) {
       notes: String(input.notes || "").trim() || undefined,
       aiDailyLimit: Number(input.aiDailyLimit ?? 3),
       aiWeeklyLimit: Number(input.aiWeeklyLimit ?? 10),
+      aiActionDailyLimit: Number(input.aiActionDailyLimit ?? 10),
+      aiActionWeeklyLimit: Number(input.aiActionWeeklyLimit ?? 40),
+      aiSummaryDailyLimit: Number(input.aiSummaryDailyLimit ?? 2),
+      aiSummaryWeeklyLimit: Number(input.aiSummaryWeeklyLimit ?? 10),
     }),
   });
 }
@@ -1081,27 +1103,67 @@ async function updateMissionControlTesterStatus(testerId, input) {
 }
 
 async function updateMissionControlTesterAiQuota(testerId, input) {
-  const aiDailyLimit = Number(input.aiDailyLimit);
-  const aiWeeklyLimit = Number(input.aiWeeklyLimit);
+  const limits = {
+    aiDailyLimit: Number(input.aiDailyLimit),
+    aiWeeklyLimit: Number(input.aiWeeklyLimit),
+    aiActionDailyLimit: Number(input.aiActionDailyLimit),
+    aiActionWeeklyLimit: Number(input.aiActionWeeklyLimit),
+    aiSummaryDailyLimit: Number(input.aiSummaryDailyLimit),
+    aiSummaryWeeklyLimit: Number(input.aiSummaryWeeklyLimit),
+  };
 
-  if (
-    !Number.isInteger(aiDailyLimit) ||
-    aiDailyLimit < 0 ||
-    aiDailyLimit > 20 ||
-    !Number.isInteger(aiWeeklyLimit) ||
-    aiWeeklyLimit < 0 ||
-    aiWeeklyLimit > 100
-  ) {
-    const error = new Error("Limites IA invalides.");
-    error.statusCode = 400;
-    throw error;
-  }
+  assertIntegerInRange(limits.aiDailyLimit, 0, 20, "Limite mission IA/jour");
+  assertIntegerInRange(
+    limits.aiWeeklyLimit,
+    0,
+    100,
+    "Limite mission IA/semaine",
+  );
+  assertIntegerInRange(
+    limits.aiActionDailyLimit,
+    0,
+    100,
+    "Limite actions IA/jour",
+  );
+  assertIntegerInRange(
+    limits.aiActionWeeklyLimit,
+    0,
+    500,
+    "Limite actions IA/semaine",
+  );
+  assertIntegerInRange(
+    limits.aiSummaryDailyLimit,
+    0,
+    20,
+    "Limite synthese IA/jour",
+  );
+  assertIntegerInRange(
+    limits.aiSummaryWeeklyLimit,
+    0,
+    100,
+    "Limite synthese IA/semaine",
+  );
+  assertDailyWeeklyPair(
+    limits.aiDailyLimit,
+    limits.aiWeeklyLimit,
+    "Mission IA",
+  );
+  assertDailyWeeklyPair(
+    limits.aiActionDailyLimit,
+    limits.aiActionWeeklyLimit,
+    "Actions IA",
+  );
+  assertDailyWeeklyPair(
+    limits.aiSummaryDailyLimit,
+    limits.aiSummaryWeeklyLimit,
+    "Synthese IA",
+  );
 
   return missionControlAdminFetch(
     `/admin/testers/${encodeURIComponent(testerId)}/ai-quota`,
     {
       method: "PATCH",
-      body: JSON.stringify({ aiDailyLimit, aiWeeklyLimit }),
+      body: JSON.stringify(limits),
     },
   );
 }

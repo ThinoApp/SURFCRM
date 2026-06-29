@@ -11,7 +11,23 @@ export type MissionControlAccess = {
   createdAt: string
 }
 
-export type MissionControlAiQuota = {
+export type MissionControlQuotaPeriod = {
+  used: number
+  limit: number
+  remaining: number
+  resetsAt: string
+}
+
+export type MissionControlQuotaBucket = {
+  daily: MissionControlQuotaPeriod
+  weekly: MissionControlQuotaPeriod
+}
+
+export type MissionControlAiQuota = MissionControlQuotaBucket & {
+  scope?: 'MISSION_ENHANCEMENT' | 'SIGNAL_ACTION' | 'REPORT_SYNTHESIS'
+  missionEnhancement?: MissionControlQuotaBucket
+  signalAction?: MissionControlQuotaBucket
+  reportSynthesis?: MissionControlQuotaBucket
   daily: {
     used: number
     limit: number
@@ -32,6 +48,15 @@ export type MissionControlAiQuota = {
   }
 }
 
+export type MissionControlAiQuotaLimits = {
+  aiDailyLimit?: number
+  aiWeeklyLimit?: number
+  aiActionDailyLimit?: number
+  aiActionWeeklyLimit?: number
+  aiSummaryDailyLimit?: number
+  aiSummaryWeeklyLimit?: number
+}
+
 export type MissionControlTester = {
   id: string
   email: string
@@ -41,6 +66,10 @@ export type MissionControlTester = {
   notes: string | null
   aiDailyLimit?: number
   aiWeeklyLimit?: number
+  aiActionDailyLimit?: number
+  aiActionWeeklyLimit?: number
+  aiSummaryDailyLimit?: number
+  aiSummaryWeeklyLimit?: number
   aiQuota?: MissionControlAiQuota
   createdAt: string
   updatedAt: string
@@ -54,6 +83,10 @@ export type CreateMissionControlTesterInput = {
   notes?: string
   aiDailyLimit?: number
   aiWeeklyLimit?: number
+  aiActionDailyLimit?: number
+  aiActionWeeklyLimit?: number
+  aiSummaryDailyLimit?: number
+  aiSummaryWeeklyLimit?: number
 }
 
 export type CreatedMissionControlTester = MissionControlTester & {
@@ -161,12 +194,16 @@ export function updateMissionControlTesterStatus(
 export function updateMissionControlTesterAiQuota(
   baseUrl: string,
   testerId: string,
-  input: { aiDailyLimit: number; aiWeeklyLimit: number },
+  input: MissionControlAiQuotaLimits,
 ) {
   return requestMissionControlAdmin<{
     id: string
     aiDailyLimit: number
     aiWeeklyLimit: number
+    aiActionDailyLimit: number
+    aiActionWeeklyLimit: number
+    aiSummaryDailyLimit: number
+    aiSummaryWeeklyLimit: number
     aiQuota: MissionControlAiQuota
   }>(
     baseUrl,
